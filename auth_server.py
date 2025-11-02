@@ -1,18 +1,18 @@
 import os
-from flask import Flask, request, jsonify
 import jwt
-from datetime import datetime, timedelta
+from flask import Flask, request, jsonify
 from cryptography.fernet import Fernet
 import hashlib
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
-SECRET_KEY = os.environ.get('JWT_SECRET', 'your-super-secret-key')
 TOKEN_EXPIRY_MINUTES = 30
+SECRET_KEY = os.environ.get('JWT_SECRET', 'your-super-secret-key')
 
 # Mock user DB (in-memory; replace with DB later)
 USERS = {
-    'alice@company.com': {'password': 'password123', 'role': 'Developer', 'clearance': 3, 'department': 'Engineering'},
     'bob@company.com': {'password': 'securepass', 'role': 'Admin', 'clearance': 5, 'department': 'IT'},
+    'alice@company.com': {'password': 'password123', 'role': 'Developer', 'clearance': 3, 'department': 'Engineering'},
     'charlie@company.com': {'password': 'userpass', 'role': 'Analyst', 'clearance': 2, 'department': 'Finance'}
 }
 
@@ -22,8 +22,8 @@ active_sessions = {}
 # Access policies (resource -> requirements)
 ACCESS_POLICIES = {
     'database-prod': {'required_role': ['Admin', 'Developer'], 'required_clearance': 3, 'allowed_departments': ['Engineering', 'IT']},
-    'file-server': {'required_role': ['Admin', 'Developer', 'Analyst'], 'required_clearance': 2, 'allowed_departments': ['Engineering', 'IT', 'Finance']},
     'admin-panel': {'required_role': ['Admin'], 'required_clearance': 5, 'allowed_departments': ['IT']},
+    'file-server': {'required_role': ['Admin', 'Developer', 'Analyst'], 'required_clearance': 2, 'allowed_departments': ['Engineering', 'IT', 'Finance']},
     'vpn-gateway': {'required_role': ['Admin', 'Developer', 'Analyst'], 'required_clearance': 1, 'allowed_departments': ['Engineering', 'IT', 'Finance']}
 }
 
