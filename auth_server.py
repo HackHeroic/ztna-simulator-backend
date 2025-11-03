@@ -7,14 +7,14 @@ from datetime import datetime, timedelta
 
 app = Flask(__name__)
 
-# ✅ Allow CORS for React frontend
+# Allow CORS for React frontend
 CORS(app, resources={r"/api/*": {"origins": "http://localhost:3000"}})
 
-# ✅ JWT Config
+# JWT Config
 SECRET_KEY = os.environ.get("JWT_SECRET", "your-super-secret-key")
 TOKEN_EXPIRY_MINUTES = 30
 
-# ✅ Mock user database
+# Mock user database
 USERS = {
     "alice@company.com": {
         "password": "password123",
@@ -36,10 +36,10 @@ USERS = {
     },
 }
 
-# ✅ Mock in-memory session store
+# Mock in-memory session store
 active_sessions = {}
 
-# ✅ Access policies
+# Access policies
 ACCESS_POLICIES = {
     "database-prod": {
         "required_role": ["Admin", "Developer"],
@@ -64,9 +64,8 @@ ACCESS_POLICIES = {
 }
 
 
-# ======================================================
-# 🔐 LOGIN ENDPOINT
-# ======================================================
+
+# LOGIN ENDPOINT
 @app.route("/api/auth/login", methods=["POST"])
 def login():
     start_time = datetime.now()
@@ -103,9 +102,8 @@ def login():
     return jsonify({"error": "Invalid credentials"}), 401
 
 
-# ======================================================
-# 🔍 VERIFY TOKEN
-# ======================================================
+
+# VERIFY TOKEN
 @app.route("/api/auth/verify", methods=["GET"])
 def verify_token():
     auth_header = request.headers.get("Authorization", "")
@@ -122,9 +120,9 @@ def verify_token():
         return jsonify({"valid": False, "error": "Invalid token"}), 401
 
 
-# ======================================================
-# 🧩 ACCESS CHECK
-# ======================================================
+
+# ACCESS CHECK
+
 @app.route("/api/access/check", methods=["POST"])
 def check_access():
     auth_header = request.headers.get("Authorization", "")
@@ -155,9 +153,9 @@ def check_access():
         return jsonify({"error": "Invalid token"}), 401
 
 
-# ======================================================
-# 🌐 VPN REQUEST
-# ======================================================
+
+# VPN REQUEST
+
 @app.route("/api/access/request-vpn", methods=["POST"])
 def request_vpn():
     auth_header = request.headers.get("Authorization", "")
@@ -184,16 +182,16 @@ def request_vpn():
         return jsonify({"error": "Invalid token"}), 401
 
 
-# ======================================================
-# 💓 HEALTH CHECK
-# ======================================================
+
+# HEALTH CHECK
+
 @app.route("/health", methods=["GET"])
 def health():
     return jsonify({"status": "healthy", "uptime": datetime.utcnow().isoformat()})
 
 
-# ======================================================
-# 🚀 START SERVER
-# ======================================================
+
+# START SERVER
+
 if __name__ == "__main__":
     app.run(port=5000, debug=True)

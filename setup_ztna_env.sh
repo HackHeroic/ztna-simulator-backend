@@ -1,3 +1,5 @@
+# setup code
+# ./setup_ztna_env.sh
 set -e
 
 PROJECT_DIR="$(pwd)"
