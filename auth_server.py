@@ -7,14 +7,14 @@ from datetime import datetime, timedelta
 
 app = Flask(__name__)
 
-# Allow CORS for React frontend
+
 CORS(app, resources={r"/api/*": {"origins": "http://localhost:3000"}})
 
-# JWT Config
+
 SECRET_KEY = os.environ.get("JWT_SECRET", "your-super-secret-key")
 TOKEN_EXPIRY_MINUTES = 30
 
-# Mock user database
+
 USERS = {
     "alice@company.com": {
         "password": "password123",
@@ -36,10 +36,10 @@ USERS = {
     },
 }
 
-# Mock in-memory session store
+
 active_sessions = {}
 
-# Access policies
+
 ACCESS_POLICIES = {
     "database-prod": {
         "required_role": ["Admin", "Developer"],
@@ -168,6 +168,7 @@ def request_vpn():
         vpn_token = jwt.encode(
             {
                 "user": decoded["email"],
+                "clearance": decoded["clearance"],
                 "exp": datetime.utcnow() + timedelta(minutes=TOKEN_EXPIRY_MINUTES),
             },
             SECRET_KEY,

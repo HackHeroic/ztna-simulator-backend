@@ -1,1 +1,87 @@
 .env
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv
+venv.bak/
+
+# OpenVPN Certificates & Keys (SECURITY - DO NOT COMMIT)
+*.crt
+*.key
+*.pem
+*.srl
+ca.*
+server.*
+client.*
+dh*.pem
+
+# OpenVPN Runtime Files
+openvpn-status.log
+ipp.txt
+temp_ovpn/
+vpn-*.ovpn
+*.ovpn.bak
+
+# Session & Runtime Data
+ztna_session.json
+*.log
+*.db
+
+# Test Results
+baseline_results.json
+
+# System Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+
+# Environment Variables
+.env
+.env.local
+.env.*.local
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# Coverage reports
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
