@@ -179,3 +179,15 @@ echo -e "${YELLOW}Note: Certificates are valid for 10 years.${NC}"
 echo -e "${YELLOW}Note: Keep ca.key, server.key, and client.key secure!${NC}"
 echo ""
 
+
+echo "Starting OpenVPN using server.ovpn…"
+
+# Run OpenVPN as a background daemon using server.ovpn
+sudo openvpn --config server.ovpn --daemon
+
+# Check if OpenVPN started successfully
+if pgrep -x "openvpn" > /dev/null; then
+    echo "OpenVPN started successfully! 🎉"
+else
+    echo "Failed to start OpenVPN ❌"
+fi

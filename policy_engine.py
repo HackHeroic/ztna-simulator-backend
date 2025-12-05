@@ -48,7 +48,7 @@ NETWORK_POLICIES = {
     'allow_public_wifi': False,  # Block public WiFi
     'require_corporate_network': False,
     'ip_reputation_check': True,
-    'geo_fencing': ['US', 'CA', 'UK'],  # Allowed countries
+    'geo_fencing': ['US', 'CA', 'UK','IN'],  # Allowed countries
     'block_tor': True,
     'block_vpn_proxies': False,  # Allow corporate VPN
     'check_known_malicious_ips': True,
@@ -126,6 +126,11 @@ active_sessions = {}  # {user_email: {last_verified: datetime, risk_score: int, 
 # LOCATION IDENTIFICATION
 # ======================================================
 
+
+session = requests.Session()
+session.trust_env = False  # ignore HTTP(S)_PROXY env vars
+
+
 def is_private_ip(ip_address):
     """Check if IP address is private/localhost."""
     if not ip_address:
@@ -183,7 +188,10 @@ def get_location_from_ip(ip_address):
     try:
         # Using ip-api.com (free, no API key needed for limited use)
         # In production, use paid services like MaxMind GeoIP2, IPinfo, etc.
-        response = requests.get(f'http://ip-api.com/json/{ip_address}?fields=status,country,countryCode,city,lat,lon,isp', timeout=2)
+        response = session.get(
+            f'http://ip-api.com/json/{ip_address}?fields=status,country,countryCode,city,lat,lon,isp',
+            timeout=2
+        )
         if response.status_code == 200:
             data = response.json()
             if data.get('status') == 'success':
