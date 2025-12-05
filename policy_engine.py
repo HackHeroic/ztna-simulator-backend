@@ -123,6 +123,24 @@ anomalies = []
 # Active sessions with continuous auth tracking
 active_sessions = {}  # {user_email: {last_verified: datetime, risk_score: int, ...}}
 
+# Continuous auth request tracking
+continuous_auth_requests = []  # Track all continuous auth requests
+
+# Access tracking with VPN status
+access_log = []  # Track all access attempts with VPN status
+
+# Admin/Master users (can modify policies and risk factors)
+ADMIN_USERS = ['bob@company.com']  # Users with admin role or clearance 5
+
+# Dynamic risk thresholds (can be updated via API)
+DYNAMIC_RISK_THRESHOLDS = {
+    'global_max_risk': 75,  # Maximum risk before automatic deny
+    'critical_resource_threshold': 20,
+    'high_resource_threshold': 30,
+    'medium_resource_threshold': 50,
+    'continuous_auth_max_risk': 75  # Max risk for continuous auth
+}
+
 # ======================================================
 # LOCATION IDENTIFICATION
 # ======================================================
@@ -408,25 +426,71 @@ def evaluate_policy():
     location = data.get('location', {})
     context = data.get('context', {})
     
-    # If location not provided, try to get from IP
-    if not location or location.get('country') == 'Unknown':
-        client_ip = get_client_ip()
-        detected_location = get_location_from_ip(client_ip)
-        location.update(detected_location)
+    # Check if user has active VPN connection to get real IP/location
+    vpn_connected = False
+    vpn_ip = None
+    real_client_ip = None
+    real_location = None
     
-    # Calculate risk score
+    try:
+        # Check VPN gateway for active connection
+        vpn_resp = requests.get(
+            f'http://127.0.0.1:5001/api/vpn/check-connection?user_email={user_email}',
+            timeout=2
+        )
+        if vpn_resp.status_code == 200:
+            vpn_data = vpn_resp.json()
+            vpn_connected = vpn_data.get('connected', False)
+            if vpn_connected:
+                vpn_ip = vpn_data.get('vpn_ip')
+                # Get real IP and location from VPN connection (stored before VPN)
+                real_client_ip = vpn_data.get('real_client_ip')
+                real_location = vpn_data.get('location')
+    except:
+        pass  # VPN gateway not available, assume no VPN
+    
+    # IMPORTANT: Use real IP/location if VPN is connected, otherwise detect from request
+    if vpn_connected and real_location and real_client_ip:
+        # User is connected via VPN - use stored real location (from BEFORE VPN)
+        location = real_location.copy() if isinstance(real_location, dict) else {}
+        # Ensure we have country info
+        if not location.get('country') or location.get('country') in ['Unknown', 'Local']:
+            # Re-detect from real IP
+            detected_location = get_location_from_ip(real_client_ip)
+            location.update(detected_location)
+    else:
+        # No VPN or real location not available - detect from request
+        # If location not provided, try to get from IP
+        if not location or location.get('country') in ['Unknown', 'Local']:
+            client_ip = data.get('client_ip') or get_client_ip()  # Prefer frontend-provided IP
+            detected_location = get_location_from_ip(client_ip)
+            if location:
+                location.update(detected_location)
+            else:
+                location = detected_location
+            real_client_ip = client_ip
+    
+    # Calculate risk score using REAL location (not VPN IP location)
     risk_score, risk_factors = calculate_risk_score(user_email, resource, device, location, context)
     
     # Get resource policy
     resource_policy = RESOURCE_POLICIES.get(resource, {})
-    required_risk_threshold = 50  # Default
-    if resource_policy.get('sensitivity') == 'critical':
-        required_risk_threshold = 20
-    elif resource_policy.get('sensitivity') == 'high':
-        required_risk_threshold = 30
     
-    # Check if access should be denied
+    # Use dynamic thresholds if available, otherwise defaults
+    if resource_policy.get('sensitivity') == 'critical':
+        required_risk_threshold = DYNAMIC_RISK_THRESHOLDS.get('critical_resource_threshold', 20)
+    elif resource_policy.get('sensitivity') == 'high':
+        required_risk_threshold = DYNAMIC_RISK_THRESHOLDS.get('high_resource_threshold', 30)
+    else:
+        required_risk_threshold = DYNAMIC_RISK_THRESHOLDS.get('medium_resource_threshold', 50)
+    
+    # Check global max risk
+    global_max = DYNAMIC_RISK_THRESHOLDS.get('global_max_risk', 75)
+    
+    # Determine decision
+    decision = 'ALLOW'
     if risk_score > required_risk_threshold:
+        decision = 'DENY'
         anomaly = {
             'user': user_email,
             'resource': resource,
@@ -434,23 +498,52 @@ def evaluate_policy():
             'risk_factors': risk_factors,
             'time': datetime.now().isoformat(),
             'location': location,
-            'device': device
+            'device': device,
+            'vpn_connected': vpn_connected
         }
         anomalies.append(anomaly)
+    elif resource_policy.get('require_mfa', False) and not context.get('mfa_verified', False):
+        decision = 'MFA_REQUIRED'
+    
+    # Log access attempt with VPN status
+    access_entry = {
+        'timestamp': datetime.now().isoformat(),
+        'user': user_email,
+        'resource': resource,
+        'decision': decision,
+        'risk_score': risk_score,
+        'risk_factors': risk_factors,
+        'vpn_connected': vpn_connected,
+        'vpn_ip': vpn_ip,
+        'real_ip': real_client_ip or location.get('ip') if isinstance(location, dict) else get_client_ip(),
+        'location': location.get('country', 'Unknown') if isinstance(location, dict) else 'Unknown',
+        'device': device,
+        'threshold': required_risk_threshold
+    }
+    access_log.append(access_entry)
+    
+    # Keep only last 10000 entries
+    if len(access_log) > 10000:
+        access_log[:] = access_log[-10000:]
+    
+    # Return response
+    if decision == 'DENY':
         return jsonify({
             'decision': 'DENY',
             'risk_score': risk_score,
             'reason': 'High risk',
             'risk_factors': risk_factors,
-            'threshold': required_risk_threshold
+            'threshold': required_risk_threshold,
+            'vpn_connected': vpn_connected,
+            'location_used': location.get('country', 'Unknown') if isinstance(location, dict) else 'Unknown'
         }), 403
     
-    # Check MFA requirement
-    if resource_policy.get('require_mfa', False) and not context.get('mfa_verified', False):
+    if decision == 'MFA_REQUIRED':
         return jsonify({
             'decision': 'MFA_REQUIRED',
             'risk_score': risk_score,
-            'reason': 'Multi-factor authentication required'
+            'reason': 'Multi-factor authentication required',
+            'vpn_connected': vpn_connected
         }), 401
     
     # Access granted
@@ -462,7 +555,9 @@ def evaluate_policy():
             'location': location,
             'session_timeout_minutes': resource_policy.get('session_timeout_minutes', SESSION_POLICIES['default_session_timeout_minutes'])
         },
-        'risk_factors': risk_factors
+        'risk_factors': risk_factors,
+        'vpn_connected': vpn_connected,
+        'location_used': location.get('country', 'Unknown') if isinstance(location, dict) else 'Unknown'
     })
 
 @app.route('/api/policy/continuous-auth', methods=['POST'])
@@ -472,7 +567,9 @@ def continuous_auth():
     Prefers client-provided location/IP (from VPN gateway) over detecting from request,
     since during VPN connection, request IP would be VPN IP (10.8.0.x) not real client IP.
     """
+    request_timestamp = datetime.now().isoformat()
     token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    
     if not token:
         return jsonify({'status': 'failed', 'reason': 'No token provided'}), 401
     
@@ -481,6 +578,11 @@ def continuous_auth():
     device = data.get('device', {})
     location = data.get('location', {})
     client_ip = data.get('client_ip')  # Client-provided IP (from VPN gateway)
+    
+    # Log the request
+    print(f"[{request_timestamp}] Policy Engine: Continuous auth REQUEST")
+    print(f"  - IP: {client_ip or get_client_ip()}")
+    print(f"  - Location: {location.get('country', 'Unknown')}")
     
     # Priority: Use client-provided location/IP (most reliable during VPN)
     # Only detect from request if not provided (for non-VPN requests)
@@ -504,8 +606,30 @@ def continuous_auth():
     # Verify token and context
     result, decoded = verify_token_and_context(token, device, location)
     
+    # Log the response
+    response_timestamp = datetime.now().isoformat()
+    log_entry = {
+        'timestamp': request_timestamp,
+        'response_time': response_timestamp,
+        'user': decoded.get('email') if decoded else 'unknown',
+        'client_ip': client_ip or get_client_ip(),
+        'location': location.get('country', 'Unknown'),
+        'status': result.get('status'),
+        'risk_score': result.get('risk_score', 0),
+        'success': result.get('status') == 'verified'
+    }
+    continuous_auth_requests.append(log_entry)
+    
+    # Keep only last 1000 entries
+    if len(continuous_auth_requests) > 1000:
+        continuous_auth_requests[:] = continuous_auth_requests[-1000:]
+    
     if result['status'] == 'verified':
         user_email = decoded.get('email') or decoded.get('user')
+        
+        print(f"[{response_timestamp}] Policy Engine: Continuous auth VERIFIED")
+        print(f"  - User: {user_email}")
+        print(f"  - Risk Score: {result.get('risk_score', 0)}")
         
         # Update active session
         active_sessions[user_email] = {
@@ -515,16 +639,20 @@ def continuous_auth():
             'device': device
         }
         
-        # Check if risk is too high
-        if result.get('risk_score', 0) > 75:
+        # Check if risk is too high (use dynamic threshold)
+        max_risk = DYNAMIC_RISK_THRESHOLDS.get('continuous_auth_max_risk', 75)
+        if result.get('risk_score', 0) > max_risk:
+            print(f"[{response_timestamp}] Policy Engine: HIGH RISK DETECTED - {result.get('risk_score', 0)}")
             return jsonify({
                 'status': 'failed',
                 'reason': 'High risk detected',
-                'risk_score': result['risk_score']
+                'risk_score': result['risk_score'],
+                'threshold': max_risk
             }), 401
         
         return jsonify(result)
     else:
+        print(f"[{response_timestamp}] Policy Engine: Continuous auth FAILED - {result.get('reason')}")
         return jsonify(result), 401
 
 @app.route('/api/policy/anomaly-detect', methods=['POST'])
@@ -609,6 +737,539 @@ def get_policies():
         'device_policies': DEVICE_POLICIES,
         'resource_policies': RESOURCE_POLICIES,
         'session_policies': SESSION_POLICIES
+    })
+
+@app.route('/api/policy/test-risk', methods=['POST'])
+def test_risk_scenario():
+    """
+    Test endpoint to simulate different risk scenarios for frontend visualization.
+    Allows setting specific risk scores and factors for testing.
+    """
+    data = request.json or {}
+    
+    # Allow overriding risk score for testing
+    test_risk_score = data.get('test_risk_score')
+    test_risk_factors = data.get('test_risk_factors', [])
+    test_decision = data.get('test_decision')  # 'ALLOW', 'DENY', 'MFA_REQUIRED'
+    
+    user_email = data.get('user', {}).get('email', 'test@company.com')
+    resource = data.get('resource', 'database-prod')
+    device = data.get('device', {})
+    location = data.get('location', {})
+    context = data.get('context', {})
+    
+    # If test mode, use provided values
+    if test_risk_score is not None:
+        risk_score = test_risk_score
+        risk_factors = test_risk_factors if test_risk_factors else [f'Test mode: Risk score {risk_score}']
+    else:
+        # Normal calculation
+        risk_score, risk_factors = calculate_risk_score(user_email, resource, device, location, context)
+    
+    # Get resource policy
+    resource_policy = RESOURCE_POLICIES.get(resource, {})
+    
+    # Use dynamic thresholds
+    if resource_policy.get('sensitivity') == 'critical':
+        required_risk_threshold = DYNAMIC_RISK_THRESHOLDS.get('critical_resource_threshold', 20)
+    elif resource_policy.get('sensitivity') == 'high':
+        required_risk_threshold = DYNAMIC_RISK_THRESHOLDS.get('high_resource_threshold', 30)
+    else:
+        required_risk_threshold = DYNAMIC_RISK_THRESHOLDS.get('medium_resource_threshold', 50)
+    
+    # Override decision if test mode
+    if test_decision:
+        decision = test_decision
+    elif risk_score > required_risk_threshold:
+        decision = 'DENY'
+    elif resource_policy.get('require_mfa', False) and not context.get('mfa_verified', False):
+        decision = 'MFA_REQUIRED'
+    else:
+        decision = 'ALLOW'
+    
+    response_data = {
+        'decision': decision,
+        'risk_score': risk_score,
+        'risk_factors': risk_factors,
+        'threshold': required_risk_threshold,
+        'test_mode': test_risk_score is not None,
+        'context': {
+            'device': device,
+            'location': location,
+            'session_timeout_minutes': resource_policy.get('session_timeout_minutes', 30)
+        }
+    }
+    
+    # Return appropriate status code
+    if decision == 'DENY':
+        return jsonify(response_data), 403
+    elif decision == 'MFA_REQUIRED':
+        return jsonify(response_data), 401
+    else:
+        return jsonify(response_data)
+
+@app.route('/api/policy/test-scenarios', methods=['GET'])
+def get_test_scenarios():
+    """
+    Get predefined test scenarios for frontend visualization.
+    """
+    scenarios = {
+        'low_risk': {
+            'name': 'Low Risk (Normal Access)',
+            'description': 'Standard access from trusted location with compliant device',
+            'device': {'os_type': 'macOS', 'os_version': '12.0', 'encrypted': True, 'rooted': False},
+            'location': {'country': 'US', 'city': 'New York'},
+            'context': {'mfa_verified': True},
+            'expected_risk': 15,
+            'expected_decision': 'ALLOW'
+        },
+        'medium_risk_location': {
+            'name': 'Medium Risk (Unusual Location)',
+            'description': 'Access from non-geofenced country',
+            'device': {'os_type': 'macOS', 'os_version': '12.0', 'encrypted': True, 'rooted': False},
+            'location': {'country': 'CN', 'city': 'Beijing'},
+            'context': {'mfa_verified': False},
+            'expected_risk': 30,
+            'expected_decision': 'ALLOW'
+        },
+        'high_risk_rooted': {
+            'name': 'High Risk (Rooted Device)',
+            'description': 'Rooted device from unusual location',
+            'device': {'os_type': 'macOS', 'os_version': '12.0', 'encrypted': True, 'rooted': True},
+            'location': {'country': 'CN', 'city': 'Beijing'},
+            'context': {'mfa_verified': False},
+            'expected_risk': 55,
+            'expected_decision': 'DENY'
+        },
+        'critical_risk_multiple': {
+            'name': 'Critical Risk (Multiple Factors)',
+            'description': 'Old OS, not encrypted, rooted, unusual location',
+            'device': {'os_type': 'macOS', 'os_version': '8.0', 'encrypted': False, 'rooted': True},
+            'location': {'country': 'RU', 'city': 'Moscow'},
+            'context': {'mfa_verified': False},
+            'expected_risk': 75,
+            'expected_decision': 'DENY'
+        },
+        'mfa_required': {
+            'name': 'MFA Required',
+            'description': 'Access to critical resource without MFA',
+            'device': {'os_type': 'macOS', 'os_version': '12.0', 'encrypted': True, 'rooted': False},
+            'location': {'country': 'US', 'city': 'New York'},
+            'context': {'mfa_verified': False},
+            'resource': 'admin-panel',
+            'expected_risk': 20,
+            'expected_decision': 'MFA_REQUIRED'
+        }
+    }
+    
+    return jsonify({
+        'scenarios': scenarios,
+        'usage': 'POST to /api/policy/test-risk with scenario data to test'
+    })
+
+@app.route('/api/policy/continuous-auth-history', methods=['GET'])
+def get_continuous_auth_history():
+    """Get continuous authentication request history."""
+    user_email = request.args.get('user_email')
+    limit = int(request.args.get('limit', 100))
+    
+    if user_email:
+        filtered = [entry for entry in continuous_auth_requests if entry.get('user') == user_email]
+    else:
+        filtered = continuous_auth_requests
+    
+    return jsonify({
+        'total_requests': len(continuous_auth_requests),
+        'filtered_requests': len(filtered),
+        'history': filtered[-limit:]
+    })
+
+@app.route('/api/policy/risk-thresholds', methods=['GET'])
+def get_risk_thresholds():
+    """Get current risk threshold configuration."""
+    return jsonify({
+        'thresholds': DYNAMIC_RISK_THRESHOLDS,
+        'resource_defaults': {
+            'critical': DYNAMIC_RISK_THRESHOLDS.get('critical_resource_threshold', 20),
+            'high': DYNAMIC_RISK_THRESHOLDS.get('high_resource_threshold', 30),
+            'medium': DYNAMIC_RISK_THRESHOLDS.get('medium_resource_threshold', 50)
+        },
+        'global_max': DYNAMIC_RISK_THRESHOLDS.get('global_max_risk', 75),
+        'continuous_auth_max': DYNAMIC_RISK_THRESHOLDS.get('continuous_auth_max_risk', 75)
+    })
+
+@app.route('/api/policy/risk-thresholds', methods=['POST'])
+def set_risk_thresholds():
+    """Update risk threshold configuration."""
+    data = request.json or {}
+    
+    # Validate and update thresholds
+    if 'global_max_risk' in data:
+        value = int(data['global_max_risk'])
+        if 0 <= value <= 100:
+            DYNAMIC_RISK_THRESHOLDS['global_max_risk'] = value
+        else:
+            return jsonify({'error': 'global_max_risk must be between 0 and 100'}), 400
+    
+    if 'critical_resource_threshold' in data:
+        value = int(data['critical_resource_threshold'])
+        if 0 <= value <= 100:
+            DYNAMIC_RISK_THRESHOLDS['critical_resource_threshold'] = value
+        else:
+            return jsonify({'error': 'critical_resource_threshold must be between 0 and 100'}), 400
+    
+    if 'high_resource_threshold' in data:
+        value = int(data['high_resource_threshold'])
+        if 0 <= value <= 100:
+            DYNAMIC_RISK_THRESHOLDS['high_resource_threshold'] = value
+        else:
+            return jsonify({'error': 'high_resource_threshold must be between 0 and 100'}), 400
+    
+    if 'medium_resource_threshold' in data:
+        value = int(data['medium_resource_threshold'])
+        if 0 <= value <= 100:
+            DYNAMIC_RISK_THRESHOLDS['medium_resource_threshold'] = value
+        else:
+            return jsonify({'error': 'medium_resource_threshold must be between 0 and 100'}), 400
+    
+    if 'continuous_auth_max_risk' in data:
+        value = int(data['continuous_auth_max_risk'])
+        if 0 <= value <= 100:
+            DYNAMIC_RISK_THRESHOLDS['continuous_auth_max_risk'] = value
+        else:
+            return jsonify({'error': 'continuous_auth_max_risk must be between 0 and 100'}), 400
+    
+    return jsonify({
+        'message': 'Risk thresholds updated successfully',
+        'thresholds': DYNAMIC_RISK_THRESHOLDS
+    })
+
+@app.route('/api/policy/risk-thresholds/reset', methods=['POST'])
+def reset_risk_thresholds():
+    """Reset risk thresholds to default values."""
+    DYNAMIC_RISK_THRESHOLDS.update({
+        'global_max_risk': 75,
+        'critical_resource_threshold': 20,
+        'high_resource_threshold': 30,
+        'medium_resource_threshold': 50,
+        'continuous_auth_max_risk': 75
+    })
+    return jsonify({
+        'message': 'Risk thresholds reset to defaults',
+        'thresholds': DYNAMIC_RISK_THRESHOLDS
+    })
+
+def check_admin_access(token):
+    """Check if user has admin access."""
+    try:
+        decoded = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
+        user_email = decoded.get('email') or decoded.get('user')
+        role = decoded.get('role', '')
+        clearance = decoded.get('clearance', 0)
+        
+        # Check if user is in admin list, has admin role, or clearance 5
+        if user_email in ADMIN_USERS or role == 'Admin' or clearance >= 5:
+            return True, user_email
+        return False, user_email
+    except:
+        return False, None
+
+@app.route('/api/policy/access-metrics', methods=['GET'])
+def get_access_metrics():
+    """Get access metrics comparing VPN vs non-VPN access."""
+    resource = request.args.get('resource')  # Optional: filter by resource
+    user_email = request.args.get('user_email')  # Optional: filter by user
+    
+    # Filter access log
+    filtered_log = access_log
+    if resource:
+        filtered_log = [entry for entry in filtered_log if entry.get('resource') == resource]
+    if user_email:
+        filtered_log = [entry for entry in filtered_log if entry.get('user') == user_email]
+    
+    # Calculate metrics
+    total_attempts = len(filtered_log)
+    vpn_attempts = [e for e in filtered_log if e.get('vpn_connected', False)]
+    non_vpn_attempts = [e for e in filtered_log if not e.get('vpn_connected', False)]
+    
+    def calculate_stats(attempts):
+        if not attempts:
+            return {
+                'count': 0,
+                'allowed': 0,
+                'denied': 0,
+                'mfa_required': 0,
+                'avg_risk_score': 0,
+                'min_risk_score': 0,
+                'max_risk_score': 0,
+                'allow_rate': 0
+            }
+        
+        allowed = len([e for e in attempts if e.get('decision') == 'ALLOW'])
+        denied = len([e for e in attempts if e.get('decision') == 'DENY'])
+        mfa_required = len([e for e in attempts if e.get('decision') == 'MFA_REQUIRED'])
+        risk_scores = [e.get('risk_score', 0) for e in attempts]
+        
+        return {
+            'count': len(attempts),
+            'allowed': allowed,
+            'denied': denied,
+            'mfa_required': mfa_required,
+            'avg_risk_score': round(sum(risk_scores) / len(risk_scores), 2) if risk_scores else 0,
+            'min_risk_score': min(risk_scores) if risk_scores else 0,
+            'max_risk_score': max(risk_scores) if risk_scores else 0,
+            'allow_rate': round((allowed / len(attempts)) * 100, 2) if attempts else 0
+        }
+    
+    vpn_stats = calculate_stats(vpn_attempts)
+    non_vpn_stats = calculate_stats(non_vpn_attempts)
+    
+    # Per-resource breakdown
+    resources = {}
+    for entry in filtered_log:
+        res = entry.get('resource', 'unknown')
+        if res not in resources:
+            resources[res] = {'vpn': [], 'non_vpn': []}
+        
+        if entry.get('vpn_connected', False):
+            resources[res]['vpn'].append(entry)
+        else:
+            resources[res]['non_vpn'].append(entry)
+    
+    resource_breakdown = {}
+    for res, data in resources.items():
+        resource_breakdown[res] = {
+            'vpn': calculate_stats(data['vpn']),
+            'non_vpn': calculate_stats(data['non_vpn'])
+        }
+    
+    return jsonify({
+        'total_attempts': total_attempts,
+        'filter': {
+            'resource': resource or 'all',
+            'user': user_email or 'all'
+        },
+        'overall': {
+            'vpn': vpn_stats,
+            'non_vpn': non_vpn_stats
+        },
+        'by_resource': resource_breakdown,
+        'recent_attempts': filtered_log[-50:]  # Last 50 attempts
+    })
+
+@app.route('/api/policy/resources', methods=['GET'])
+def get_resources():
+    """Get list of all resources and their policies."""
+    resources = []
+    for resource_name, policy in RESOURCE_POLICIES.items():
+        resources.append({
+            'name': resource_name,
+            'sensitivity': policy.get('sensitivity', 'medium'),
+            'require_mfa': policy.get('require_mfa', False),
+            'require_low_risk': policy.get('require_low_risk', True),
+            'session_timeout_minutes': policy.get('session_timeout_minutes', 30),
+            'audit_all_access': policy.get('audit_all_access', False),
+            'time_restricted': policy.get('time_restricted', False)
+        })
+    
+    return jsonify({
+        'resources': resources,
+        'count': len(resources)
+    })
+
+# ======================================================
+# ADMIN ENDPOINTS - Require admin access
+# ======================================================
+
+@app.route('/api/policy/admin/risk-factors', methods=['GET'])
+def get_risk_factors():
+    """Get current risk factors (admin only)."""
+    token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    is_admin, user = check_admin_access(token)
+    if not is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+    
+    return jsonify({
+        'risk_factors': RISK_FACTORS,
+        'modified_by': user,
+        'timestamp': datetime.now().isoformat()
+    })
+
+@app.route('/api/policy/admin/risk-factors', methods=['POST'])
+def update_risk_factors():
+    """Update risk factors (admin only)."""
+    token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    is_admin, user = check_admin_access(token)
+    if not is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+    
+    data = request.json or {}
+    
+    # Update risk factors
+    updated = []
+    for factor, value in data.items():
+        if factor in RISK_FACTORS:
+            if isinstance(value, (int, float)) and 0 <= value <= 100:
+                RISK_FACTORS[factor] = int(value)
+                updated.append(factor)
+            else:
+                return jsonify({'error': f'Invalid value for {factor}: must be 0-100'}), 400
+    
+    return jsonify({
+        'message': f'Risk factors updated by {user}',
+        'updated': updated,
+        'risk_factors': RISK_FACTORS,
+        'timestamp': datetime.now().isoformat()
+    })
+
+@app.route('/api/policy/admin/resource-policies', methods=['GET'])
+def get_resource_policies_admin():
+    """Get all resource policies (admin only)."""
+    token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    is_admin, user = check_admin_access(token)
+    if not is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+    
+    return jsonify({
+        'resource_policies': RESOURCE_POLICIES,
+        'modified_by': user,
+        'timestamp': datetime.now().isoformat()
+    })
+
+@app.route('/api/policy/admin/resource-policies', methods=['POST'])
+def update_resource_policies():
+    """Update resource policies (admin only)."""
+    token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    is_admin, user = check_admin_access(token)
+    if not is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+    
+    data = request.json or {}
+    resource_name = data.get('resource')
+    
+    if not resource_name or resource_name not in RESOURCE_POLICIES:
+        return jsonify({'error': f'Resource {resource_name} not found'}), 404
+    
+    # Update policy
+    updates = data.get('updates', {})
+    updated_fields = []
+    
+    for field, value in updates.items():
+        if field in RESOURCE_POLICIES[resource_name]:
+            RESOURCE_POLICIES[resource_name][field] = value
+            updated_fields.append(field)
+    
+    return jsonify({
+        'message': f'Resource policy updated by {user}',
+        'resource': resource_name,
+        'updated_fields': updated_fields,
+        'policy': RESOURCE_POLICIES[resource_name],
+        'timestamp': datetime.now().isoformat()
+    })
+
+@app.route('/api/policy/admin/network-policies', methods=['GET'])
+def get_network_policies_admin():
+    """Get network policies (admin only)."""
+    token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    is_admin, user = check_admin_access(token)
+    if not is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+    
+    return jsonify({
+        'network_policies': NETWORK_POLICIES,
+        'modified_by': user,
+        'timestamp': datetime.now().isoformat()
+    })
+
+@app.route('/api/policy/admin/network-policies', methods=['POST'])
+def update_network_policies():
+    """Update network policies (admin only)."""
+    token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    is_admin, user = check_admin_access(token)
+    if not is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+    
+    data = request.json or {}
+    updates = data.get('updates', {})
+    updated_fields = []
+    
+    for field, value in updates.items():
+        if field in NETWORK_POLICIES:
+            NETWORK_POLICIES[field] = value
+            updated_fields.append(field)
+    
+    return jsonify({
+        'message': f'Network policies updated by {user}',
+        'updated_fields': updated_fields,
+        'network_policies': NETWORK_POLICIES,
+        'timestamp': datetime.now().isoformat()
+    })
+
+@app.route('/api/policy/admin/add-resource', methods=['POST'])
+def add_resource():
+    """Add a new resource (admin only)."""
+    token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    is_admin, user = check_admin_access(token)
+    if not is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+    
+    data = request.json or {}
+    resource_name = data.get('name')
+    policy = data.get('policy', {})
+    
+    if not resource_name:
+        return jsonify({'error': 'Resource name required'}), 400
+    
+    if resource_name in RESOURCE_POLICIES:
+        return jsonify({'error': f'Resource {resource_name} already exists'}), 409
+    
+    # Set defaults
+    default_policy = {
+        'sensitivity': 'medium',
+        'require_mfa': False,
+        'require_low_risk': True,
+        'session_timeout_minutes': 30,
+        'audit_all_access': False,
+        'time_restricted': False
+    }
+    default_policy.update(policy)
+    
+    RESOURCE_POLICIES[resource_name] = default_policy
+    
+    return jsonify({
+        'message': f'Resource added by {user}',
+        'resource': resource_name,
+        'policy': RESOURCE_POLICIES[resource_name],
+        'timestamp': datetime.now().isoformat()
+    })
+
+@app.route('/api/policy/admin/remove-resource', methods=['POST'])
+def remove_resource():
+    """Remove a resource (admin only)."""
+    token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    is_admin, user = check_admin_access(token)
+    if not is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+    
+    data = request.json or {}
+    resource_name = data.get('name')
+    
+    if not resource_name:
+        return jsonify({'error': 'Resource name required'}), 400
+    
+    if resource_name not in RESOURCE_POLICIES:
+        return jsonify({'error': f'Resource {resource_name} not found'}), 404
+    
+    # Don't allow removing critical resources
+    if RESOURCE_POLICIES[resource_name].get('sensitivity') == 'critical':
+        return jsonify({'error': 'Cannot remove critical resources'}), 403
+    
+    del RESOURCE_POLICIES[resource_name]
+    
+    return jsonify({
+        'message': f'Resource removed by {user}',
+        'resource': resource_name,
+        'timestamp': datetime.now().isoformat()
     })
 
 @app.route('/health', methods=['GET'])
