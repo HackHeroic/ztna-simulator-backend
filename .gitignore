@@ -32,7 +32,7 @@ openvpn-status.log
 ipp.txt
 temp_ovpn/
 vpn-*.ovpn
-*.ovpn.bak
+
 
 # Session & Runtime Data
 ztna_session.json
