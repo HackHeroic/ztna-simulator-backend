@@ -9,8 +9,11 @@ import jwt
 import requests
 from flask import Flask, request, jsonify
 from datetime import datetime
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
+
 SECRET_KEY = os.environ.get('JWT_SECRET', 'your-super-secret-key')
 POLICY_ENGINE_URL = 'http://127.0.0.1:5002'  # Policy engine endpoint
 

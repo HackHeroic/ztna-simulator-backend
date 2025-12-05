@@ -10,7 +10,8 @@ import threading
 import time
 
 app = Flask(__name__)
-CORS(app, resources={r"/api/*": {"origins": "*"}})
+CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
+
 SECRET_KEY = os.environ.get('JWT_SECRET', 'your-super-secret-key')
 
 # ======================================================
