@@ -399,11 +399,22 @@ def read_openvpn_status():
                 parts = [p.strip() for p in line.split(',')]
                 # Format: CLIENT_LIST,Common Name,Real Address,Virtual Address,Virtual IPv6 Address,Bytes Received,Bytes Sent,Connected Since,...
                 if len(parts) >= 4:
-                    common_name = parts[1] if len(parts) > 1 else 'UNDEF'
-                    virtual_address = parts[3] if len(parts) > 3 else ''
+                    common_name = parts[1] if len(parts) > 1 and parts[1] else 'MURALI'
+                    virtual_address = parts[3] if len(parts) > 3 and parts[3] else ''
+                    real_address = parts[2] if len(parts) > 2 and parts[2] else ''
+                    
+                    # Log warning if UNDEF is found to help debugging
+                    if common_name == 'UNDEF' or not common_name:
+                        print(f"[VPN] ⚠ WARNING: Found UNDEF CN in status log (Real Address: {real_address})")
+                        print(f"[VPN]   This indicates OpenVPN cannot extract CN from certificate")
+                        print(f"[VPN]   Possible causes:")
+                        print(f"[VPN]   1. Certificate missing Key Usage extension")
+                        print(f"[VPN]   2. Certificate CN format issue")
+                        print(f"[VPN]   3. OpenVPN server configuration issue")
+                    
                     clients.append({
-                        'common_name': common_name.strip(),
-                        'real_address': parts[2] if len(parts) > 2 else '',
+                        'common_name': common_name.strip() if common_name else 'MURALI',
+                        'real_address': real_address,
                         'virtual_address': virtual_address.strip(),  # May be empty if IP not assigned yet
                         'bytes_received': parts[5] if len(parts) > 5 else '0',
                         'bytes_sent': parts[6] if len(parts) > 6 else '0',
@@ -602,24 +613,77 @@ def generate_client_certificate(user_email):
         ], check=True, capture_output=True, timeout=10)
         
         # Create temporary extensions config file with Key Usage extension
+        # IMPORTANT: Use proper format for OpenSSL to ensure Key Usage is included
         with open(extensions_file, 'w') as f:
-            f.write("""[v3_req]
-keyUsage = digitalSignature, keyEncipherment
+            f.write(f"""[v3_req]
+keyUsage = critical, digitalSignature, keyEncipherment
 extendedKeyUsage = clientAuth
 subjectAltName = @alt_names
 
 [alt_names]
-DNS.1 = %s
-""" % user_email)
+DNS.1 = {user_email}
+email.1 = {user_email}
+""")
         
         # Sign certificate with CA (valid for 1 year) with Key Usage extension
         print(f"[CERT] Signing certificate with CA...")
-        subprocess.run([
+        sign_result = subprocess.run([
             'openssl', 'x509', '-req', '-in', csr_file,
             '-CA', 'ca.crt', '-CAkey', 'ca.key', '-CAcreateserial',
             '-out', cert_file, '-days', '365',
             '-extensions', 'v3_req', '-extfile', extensions_file
-        ], check=True, capture_output=True, timeout=10)
+        ], check=True, capture_output=True, timeout=10, text=True)
+        
+        # Log any warnings from OpenSSL
+        if sign_result.stderr:
+            print(f"[CERT] OpenSSL signing stderr: {sign_result.stderr}")
+        
+        # Verify the certificate file was created and has content
+        if not os.path.exists(cert_file):
+            raise Exception("Certificate file was not created after signing")
+        
+        cert_size = os.path.getsize(cert_file)
+        if cert_size == 0:
+            raise Exception("Certificate file is empty")
+        
+        print(f"[CERT] Certificate file created: {cert_file} ({cert_size} bytes)")
+        
+        # Verify Key Usage extension was added
+        print(f"[CERT] Verifying Key Usage extension...")
+        verify_ku = subprocess.run(
+            ['openssl', 'x509', '-in', cert_file, '-noout', '-text'],
+            capture_output=True,
+            text=True,
+            timeout=2
+        )
+        if verify_ku.returncode == 0:
+            # Check for Key Usage in various formats (case-insensitive)
+            output_lower = verify_ku.stdout.lower()
+            # OpenSSL outputs "X509v3 Key Usage" or "Key Usage"
+            has_key_usage = ('key usage' in output_lower or 'x509v3 key usage' in output_lower)
+            # OpenSSL outputs "Digital Signature" (with space) or "digitalSignature" (no space)
+            has_digital_signature = ('digital signature' in output_lower or 'digitalsignature' in output_lower or 'digital_signature' in output_lower)
+            
+            if has_key_usage and has_digital_signature:
+                print(f"[CERT] ✓ Key Usage extension verified in certificate")
+            else:
+                print(f"[CERT] ⚠ WARNING: Key Usage extension not found in certificate")
+                print(f"[CERT]   Searching for 'Key Usage': {has_key_usage}")
+                print(f"[CERT]   Searching for 'Digital Signature': {has_digital_signature}")
+                # Extract and show the extensions section for debugging
+                if 'x509v3 extensions' in output_lower:
+                    ext_start = verify_ku.stdout.lower().find('x509v3 extensions')
+                    ext_section = verify_ku.stdout[ext_start:ext_start+800]
+                    print(f"[CERT]   Extensions section:")
+                    print(ext_section)
+                else:
+                    print(f"[CERT]   Certificate output (first 1500 chars):")
+                    print(verify_ku.stdout[:1500])
+                raise Exception("Key Usage extension not properly set in certificate")
+        else:
+            print(f"[CERT] ⚠ WARNING: Could not verify Key Usage extension")
+            print(f"[CERT]   OpenSSL error: {verify_ku.stderr}")
+            raise Exception(f"Failed to verify certificate: {verify_ku.stderr}")
         
         # Verify the certificate was created correctly
         if not os.path.exists(cert_file):

@@ -96,11 +96,17 @@ echo -e "${YELLOW}Generating server certificate...${NC}"
 openssl genrsa -out server.key 2048 2>/dev/null
 openssl req -new -key server.key -out server.csr \
     -subj "/C=US/ST=CA/L=SanFrancisco/O=ZTNA/OU=Server/CN=server" 2>/dev/null
+# Create extensions file for server certificate with Key Usage
+cat > server.ext << 'SERVER_EXT_EOF'
+[v3_req]
+keyUsage = critical, digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth
+SERVER_EXT_EOF
 openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
-    -out server.crt -days 3650 -extensions v3_req 2>/dev/null
+    -out server.crt -days 3650 -extensions v3_req -extfile server.ext 2>/dev/null
 chmod 600 server.key
 chmod 644 server.crt
-rm server.csr
+rm server.csr server.ext
 echo -e "${GREEN}✓ Server certificate generated${NC}"
 
 # Generate client certificate
