@@ -426,6 +426,161 @@ def read_ipp_file():
         print(f"Error reading ipp.txt: {e}")
         return {'assignments': [], 'error': str(e)}
 
+def generate_client_certificate(user_email):
+    """
+    Generate a unique client certificate for each user with their email as CN.
+    Certificates are cached per user (generated once, reused for subsequent connections).
+    
+    Returns: (cert_file, key_file) tuple, or raises exception on error
+    """
+    # Sanitize email for filename (safe for filesystem)
+    safe_email = user_email.replace('@', '_at_').replace('.', '_')
+    cert_file = f'client_{safe_email}.crt'
+    key_file = f'client_{safe_email}.key'
+    
+    # Check if certificate already exists (cached)
+    if os.path.exists(cert_file) and os.path.exists(key_file):
+        # Verify certificate is still valid and has correct CN
+        try:
+            # Check validity
+            result = subprocess.run(
+                ['openssl', 'x509', '-in', cert_file, '-noout', '-checkend', '86400'],
+                capture_output=True,
+                timeout=2
+            )
+            if result.returncode == 0:
+                # Verify CN matches user_email
+                cn_result = subprocess.run(
+                    ['openssl', 'x509', '-in', cert_file, '-noout', '-subject'],
+                    capture_output=True,
+                    text=True,
+                    timeout=2
+                )
+                if cn_result.returncode == 0:
+                    cn_output = cn_result.stdout.strip()
+                    # Extract CN from subject line (format: subject=CN = user@email.com, ...)
+                    if f'CN={user_email}' in cn_output or f'/CN={user_email}' in cn_output:
+                        print(f"[CERT] Using cached certificate for {user_email} (CN verified)")
+                        return cert_file, key_file
+                    else:
+                        print(f"[CERT] Cached certificate CN mismatch. Expected {user_email}, regenerating...")
+                        os.remove(cert_file)
+                        os.remove(key_file)
+                else:
+                    print(f"[CERT] Error verifying CN in cached certificate, regenerating...")
+                    os.remove(cert_file)
+                    os.remove(key_file)
+            else:
+                # Certificate expired or invalid, regenerate
+                print(f"[CERT] Cached certificate for {user_email} expired, regenerating...")
+                os.remove(cert_file)
+                os.remove(key_file)
+        except Exception as e:
+            # If check fails, regenerate
+            print(f"[CERT] Error checking cached certificate for {user_email}: {e}, regenerating...")
+            if os.path.exists(cert_file):
+                os.remove(cert_file)
+            if os.path.exists(key_file):
+                os.remove(key_file)
+    
+    # Generate new certificate
+    print(f"[CERT] Generating new certificate for {user_email} (CN={user_email})")
+    csr_file = f'client_{safe_email}.csr'
+    extensions_file = f'client_{safe_email}.ext'
+    
+    try:
+        # Check if CA files exist
+        if not os.path.exists('ca.crt') or not os.path.exists('ca.key'):
+            raise FileNotFoundError("CA certificate (ca.crt) or key (ca.key) not found. Please run install.sh first.")
+        
+        # Generate private key
+        print(f"[CERT] Generating private key...")
+        subprocess.run([
+            'openssl', 'genrsa', '-out', key_file, '2048'
+        ], check=True, capture_output=True, timeout=10)
+        
+        # Generate certificate signing request with user email as CN
+        print(f"[CERT] Generating CSR with CN={user_email}...")
+        subprocess.run([
+            'openssl', 'req', '-new', '-key', key_file, '-out', csr_file,
+            '-subj', f'/C=US/ST=CA/L=SanFrancisco/O=ZTNA/OU=Client/CN={user_email}'
+        ], check=True, capture_output=True, timeout=10)
+        
+        # Create temporary extensions config file with Key Usage extension
+        with open(extensions_file, 'w') as f:
+            f.write("""[v3_req]
+keyUsage = digitalSignature, keyEncipherment
+extendedKeyUsage = clientAuth
+subjectAltName = @alt_names
+
+[alt_names]
+DNS.1 = %s
+""" % user_email)
+        
+        # Sign certificate with CA (valid for 1 year) with Key Usage extension
+        print(f"[CERT] Signing certificate with CA...")
+        subprocess.run([
+            'openssl', 'x509', '-req', '-in', csr_file,
+            '-CA', 'ca.crt', '-CAkey', 'ca.key', '-CAcreateserial',
+            '-out', cert_file, '-days', '365',
+            '-extensions', 'v3_req', '-extfile', extensions_file
+        ], check=True, capture_output=True, timeout=10)
+        
+        # Verify the certificate was created correctly
+        if not os.path.exists(cert_file):
+            raise Exception("Certificate file was not created")
+        
+        # Verify CN in the generated certificate
+        verify_result = subprocess.run(
+            ['openssl', 'x509', '-in', cert_file, '-noout', '-subject'],
+            capture_output=True,
+            text=True,
+            timeout=2
+        )
+        if verify_result.returncode != 0:
+            raise Exception(f"Failed to verify certificate: {verify_result.stderr}")
+        
+        cn_output = verify_result.stdout.strip()
+        if f'CN={user_email}' not in cn_output and f'/CN={user_email}' not in cn_output:
+            raise Exception(f"Certificate CN mismatch. Expected {user_email}, got: {cn_output}")
+        
+        # Clean up CSR and extensions file
+        for f in [csr_file, extensions_file]:
+            if os.path.exists(f):
+                try:
+                    os.remove(f)
+                except:
+                    pass
+        
+        # Set proper permissions
+        os.chmod(key_file, 0o600)  # Read/write for owner only
+        os.chmod(cert_file, 0o644)  # Read for all, write for owner
+        
+        print(f"[CERT] ✓ Successfully generated and verified certificate for {user_email}")
+        return cert_file, key_file
+        
+    except subprocess.CalledProcessError as e:
+        error_msg = e.stderr.decode('utf-8') if e.stderr else str(e)
+        print(f"[CERT] ✗ Error generating certificate for {user_email}: {error_msg}")
+        # Clean up partial files
+        for f in [cert_file, key_file, csr_file, extensions_file]:
+            if os.path.exists(f):
+                try:
+                    os.remove(f)
+                except:
+                    pass
+        raise Exception(f"Certificate generation failed: {error_msg}")
+    except Exception as e:
+        print(f"[CERT] ✗ Unexpected error generating certificate for {user_email}: {e}")
+        # Clean up partial files
+        for f in [cert_file, key_file, csr_file, extensions_file]:
+            if os.path.exists(f):
+                try:
+                    os.remove(f)
+                except:
+                    pass
+        raise
+
 def mock_connect(user_email, routes):
     """Mock tunnel for preview (simulates 10.8.0.x assignment)"""
     time.sleep(1)  # Simulate connection time
@@ -551,6 +706,17 @@ def connect_vpn():
         openvpn_available = is_openvpn_installed() and (is_openvpn_running() or daemon_started)
         
         if openvpn_available:
+            # Generate per-user certificate (cached, generated once per user)
+            try:
+                client_cert, client_key = generate_client_certificate(user_email)
+            except Exception as cert_error:
+                print(f"[VPN] ✗ Certificate generation failed: {cert_error}")
+                return jsonify({
+                    'error': 'Certificate generation failed',
+                    'details': str(cert_error),
+                    'message': 'Please ensure CA certificates exist (run install.sh)'
+                }), 500
+            
             # Full client config based on your openvpn-client.ovpn + dynamic routes (IPv4 fix)
             try:
                 client_config = f"""client
@@ -562,70 +728,147 @@ nobind
 persist-key
 persist-tun
 ca ca.crt
-cert client.crt
-key client.key
+cert {client_cert}
+key {client_key}
 remote-cert-tls server
 cipher AES-256-GCM
 auth SHA512
 verb 3
 route {' '.join(routes)}
 # JWT stub: In prod, use --auth-user-pass for token validation
+# Certificate CN: {user_email}
 """
                 ovpn_file = f'{connection_id}.ovpn'
                 with open(ovpn_file, 'w') as f:
                     f.write(client_config)
                 
                 # Try to start OpenVPN client
-                print(f"Starting OpenVPN client with config: {ovpn_file}")
-                client_proc = subprocess.Popen(
-                    ['openvpn', '--config', ovpn_file], 
-                    stdout=subprocess.PIPE, 
-                    stderr=subprocess.PIPE,
-                    cwd=os.getcwd()
-                )
-                time.sleep(5)  # Wait for TLS handshake
+                print(f"[VPN] Starting OpenVPN client with config: {ovpn_file}")
+                print(f"[VPN] Using certificate: {client_cert} (CN should be: {user_email})")
                 
+                # Start client with output to log file for debugging
+                log_file = f'{connection_id}.log'
+                with open(log_file, 'w') as log_f:
+                    client_proc = subprocess.Popen(
+                        ['openvpn', '--config', ovpn_file], 
+                        stdout=log_f,
+                        stderr=subprocess.STDOUT,  # Redirect stderr to stdout
+                        cwd=os.getcwd()
+                    )
+                
+                # Wait longer for TLS handshake and connection
+                time.sleep(8)  # Increased wait time for full connection
+                
+                # Check if process is still running
                 if client_proc.poll() is not None:
-                    # Client process exited, read error
-                    _, stderr_output = client_proc.communicate()
-                    error_msg = stderr_output.decode('utf-8') if stderr_output else "Unknown error"
-                    print(f"OpenVPN client failed: {error_msg[:200]}")
+                    # Client process exited, read error from log
+                    error_msg = "Unknown error"
+                    try:
+                        with open(log_file, 'r') as f:
+                            error_msg = f.read()[-500:]  # Last 500 chars
+                    except:
+                        pass
+                    print(f"[VPN] OpenVPN client failed: {error_msg[:300]}")
                     # Fall back to mock mode
                     result = mock_connect(user_email, routes)
                     result['connection_mode'] = 'mock_fallback'
                     result['error'] = f"OpenVPN client failed: {error_msg[:100]}"
                 else:
-                    # Try to get real IP from status log or ipp.txt
-                    vpn_ip = '10.8.0.2'  # Default
+                    print(f"[VPN] OpenVPN client process running (PID: {client_proc.pid})")
+                    # Check log for connection status
                     try:
-                        # First try ipp.txt (more reliable for IP assignments)
-                        ipp_data = read_ipp_file()
-                        # Find IP for this user (common name format: vpn-{email}-{timestamp})
-                        for assignment in ipp_data.get('assignments', []):
-                            if user_email in assignment.get('common_name', ''):
-                                vpn_ip = assignment.get('ip_address', '10.8.0.2')
-                                break
-                        
-                        # If not found in ipp.txt, try status log
-                        if vpn_ip == '10.8.0.2':
+                        with open(log_file, 'r') as f:
+                            log_content = f.read()
+                            if 'Initialization Sequence Completed' in log_content:
+                                print(f"[VPN] OpenVPN client connected successfully")
+                            elif 'TLS handshake' in log_content or 'Peer Connection Initiated' in log_content:
+                                print(f"[VPN] OpenVPN TLS handshake in progress...")
+                    except:
+                        pass
+                    # Try to get real IP from status log or ipp.txt
+                    vpn_ip = None
+                    max_retries = 5
+                    retry_delay = 3  # seconds
+                    
+                    for retry in range(max_retries):
+                        try:
+                            # Wait for OpenVPN to complete connection and assign IP
+                            # Status log updates every 10 seconds, but we check more frequently
+                            if retry > 0:
+                                print(f"[VPN] Retry {retry}/{max_retries}: Waiting for IP assignment...")
+                                time.sleep(retry_delay)
+                            else:
+                                print(f"[VPN] Waiting for OpenVPN connection to complete and IP assignment...")
+                                time.sleep(5)  # Initial wait
+                            
+                            # Read status log
                             status_data = read_openvpn_status()
-                            # Find most recent client connection for this user
+                            print(f"[VPN] Checking status log for {user_email}...")
+                            print(f"[VPN] Found {len(status_data.get('clients', []))} clients in status log")
+                            
+                            # Find client connection by Common Name (should be user_email)
                             for client in status_data.get('clients', []):
-                                if user_email in client.get('common_name', ''):
-                                    vpn_ip = client.get('virtual_address', '10.8.0.2')
+                                cn = client.get('common_name', '')
+                                real_addr = client.get('real_address', '')
+                                virtual_ip = client.get('virtual_address', '')
+                                print(f"[VPN] Client: CN={cn}, Real={real_addr}, Virtual={virtual_ip}")
+                                
+                                # Match by exact CN (user_email)
+                                if cn == user_email:
+                                    if virtual_ip and virtual_ip.startswith('10.8.0.'):
+                                        vpn_ip = virtual_ip
+                                        print(f"[VPN] ✓ Found assigned IP {vpn_ip} for {user_email} (CN: {cn})")
+                                        break
+                                    else:
+                                        print(f"[VPN] Found client with CN={cn} but no Virtual IP yet (waiting...)")
+                                # Also check if CN contains user_email (in case of formatting differences)
+                                elif user_email in cn:
+                                    if virtual_ip and virtual_ip.startswith('10.8.0.'):
+                                        vpn_ip = virtual_ip
+                                        print(f"[VPN] ✓ Found assigned IP {vpn_ip} for {user_email} (CN: {cn})")
+                                        break
+                            
+                            # If found in status log, break retry loop
+                            if vpn_ip:
+                                break
+                            
+                            # Also check ipp.txt (persistent IP assignments)
+                            ipp_data = read_ipp_file()
+                            print(f"[VPN] Checking ipp.txt: {len(ipp_data.get('assignments', []))} assignments")
+                            for assignment in ipp_data.get('assignments', []):
+                                cn = assignment.get('common_name', '')
+                                ip_addr = assignment.get('ip_address', '')
+                                if cn == user_email and ip_addr and ip_addr.startswith('10.8.0.'):
+                                    vpn_ip = ip_addr
+                                    print(f"[VPN] ✓ Found IP {vpn_ip} in ipp.txt for {user_email} (CN: {cn})")
                                     break
                             
-                            # Fallback: search for any 10.8.0.x IP in status log
-                            if vpn_ip == '10.8.0.2':
-                                status_data = read_openvpn_status()
+                            # If found in ipp.txt, break retry loop
+                            if vpn_ip:
+                                break
+                            
+                            # If still not found and this is not the last retry, continue
+                            if retry < max_retries - 1:
+                                print(f"[VPN] IP not assigned yet, will retry...")
+                            else:
+                                print(f"[VPN] ⚠ IP assignment not found after {max_retries} retries")
+                                # Last resort: check if there's any client with UNDEF that might be ours
                                 for client in status_data.get('clients', []):
-                                    ip = client.get('virtual_address', '')
-                                    if ip.startswith('10.8.0.'):
-                                        vpn_ip = ip
-                                        break
-                    except Exception as e:
-                        print(f"Error reading OpenVPN status files: {e}")
-                        pass
+                                    cn = client.get('common_name', '')
+                                    if cn == 'UNDEF':
+                                        print(f"[VPN] ⚠ WARNING: Found UNDEF client - certificate CN may not be recognized by OpenVPN")
+                                        print(f"[VPN]   This usually means the certificate CN is not being read correctly")
+                                    
+                        except Exception as e:
+                            print(f"[VPN] Error reading OpenVPN status files (retry {retry+1}/{max_retries}): {e}")
+                            if retry == max_retries - 1:
+                                print(f"[VPN] Failed to read IP assignment after all retries")
+                    
+                    # If still no IP found, use a fallback (but log warning)
+                    if not vpn_ip:
+                        print(f"[VPN] ⚠ Could not determine assigned IP, using default 10.8.0.2")
+                        print(f"[VPN]   This may indicate an issue with OpenVPN IP assignment")
+                        vpn_ip = '10.8.0.2'  # Fallback
                     
                     result = {
                         'status': 'connected', 
@@ -854,6 +1097,28 @@ def get_openvpn_status():
     status_data = read_openvpn_status()
     ipp_data = read_ipp_file()
     
+    # Check for issues
+    issues = []
+    if not os.path.exists('openvpn-status.log'):
+        issues.append('Status log file does not exist')
+    elif os.path.getsize('openvpn-status.log') == 0:
+        issues.append('Status log file is empty')
+    
+    if not os.path.exists('ipp.txt'):
+        issues.append('IP pool file does not exist')
+    elif os.path.getsize('ipp.txt') == 0:
+        issues.append('IP pool file is empty')
+    
+    # Check for UNDEF CNs
+    undef_count = sum(1 for client in status_data.get('clients', []) if client.get('common_name') == 'UNDEF')
+    if undef_count > 0:
+        issues.append(f'{undef_count} client(s) with UNDEF Common Name (certificate issue)')
+    
+    # Check for clients without Virtual IP
+    no_ip_count = sum(1 for client in status_data.get('clients', []) if not client.get('virtual_address'))
+    if no_ip_count > 0:
+        issues.append(f'{no_ip_count} client(s) without Virtual IP assigned')
+    
     return jsonify({
         'status_log': status_data,
         'ip_pool': ipp_data,
@@ -862,8 +1127,90 @@ def get_openvpn_status():
         'status_log_exists': os.path.exists('openvpn-status.log'),
         'ipp_file_exists': os.path.exists('ipp.txt'),
         'status_log_size': os.path.getsize('openvpn-status.log') if os.path.exists('openvpn-status.log') else 0,
-        'ipp_file_size': os.path.getsize('ipp.txt') if os.path.exists('ipp.txt') else 0
+        'ipp_file_size': os.path.getsize('ipp.txt') if os.path.exists('ipp.txt') else 0,
+        'issues': issues,
+        'clients_count': len(status_data.get('clients', [])),
+        'ipp_assignments_count': len(ipp_data.get('assignments', []))
     })
+
+@app.route('/api/vpn/diagnose-files', methods=['GET'])
+def diagnose_files():
+    """Diagnose issues with ipp.txt and openvpn-status.log files."""
+    diagnosis = {
+        'status_log': {
+            'exists': os.path.exists('openvpn-status.log'),
+            'size': 0,
+            'readable': False,
+            'has_clients': False,
+            'undef_cns': 0,
+            'clients_without_ip': 0,
+            'last_update': None,
+            'issues': []
+        },
+        'ipp_file': {
+            'exists': os.path.exists('ipp.txt'),
+            'size': 0,
+            'readable': False,
+            'has_assignments': False,
+            'assignments_count': 0,
+            'last_update': None,
+            'issues': []
+        },
+        'openvpn_server': {
+            'running': is_openvpn_running(),
+            'process_count': 0
+        },
+        'recommendations': []
+    }
+    
+    # Check status log
+    if diagnosis['status_log']['exists']:
+        diagnosis['status_log']['size'] = os.path.getsize('openvpn-status.log')
+        try:
+            status_data = read_openvpn_status()
+            diagnosis['status_log']['readable'] = True
+            diagnosis['status_log']['has_clients'] = len(status_data.get('clients', [])) > 0
+            diagnosis['status_log']['undef_cns'] = sum(1 for c in status_data.get('clients', []) if c.get('common_name') == 'UNDEF')
+            diagnosis['status_log']['clients_without_ip'] = sum(1 for c in status_data.get('clients', []) if not c.get('virtual_address'))
+            
+            if diagnosis['status_log']['undef_cns'] > 0:
+                diagnosis['status_log']['issues'].append(f'{diagnosis["status_log"]["undef_cns"]} clients with UNDEF CN - certificate Key Usage extension may be missing')
+                diagnosis['recommendations'].append('Regenerate client certificates with Key Usage extension')
+            
+            if diagnosis['status_log']['clients_without_ip'] > 0:
+                diagnosis['status_log']['issues'].append(f'{diagnosis["status_log"]["clients_without_ip"]} clients without Virtual IP')
+                diagnosis['recommendations'].append('Wait for OpenVPN to assign IPs (status log updates every 10 seconds)')
+            
+            if diagnosis['status_log']['size'] == 0:
+                diagnosis['status_log']['issues'].append('Status log file is empty')
+                diagnosis['recommendations'].append('Restart OpenVPN server to initialize status log')
+        except Exception as e:
+            diagnosis['status_log']['issues'].append(f'Error reading status log: {str(e)}')
+    
+    # Check ipp.txt
+    if diagnosis['ipp_file']['exists']:
+        diagnosis['ipp_file']['size'] = os.path.getsize('ipp.txt')
+        try:
+            ipp_data = read_ipp_file()
+            diagnosis['ipp_file']['readable'] = True
+            diagnosis['ipp_file']['has_assignments'] = len(ipp_data.get('assignments', [])) > 0
+            diagnosis['ipp_file']['assignments_count'] = len(ipp_data.get('assignments', []))
+            
+            if diagnosis['ipp_file']['size'] == 0:
+                diagnosis['ipp_file']['issues'].append('IP pool file is empty')
+                diagnosis['recommendations'].append('Connect a client - ipp.txt updates when clients connect')
+        except Exception as e:
+            diagnosis['ipp_file']['issues'].append(f'Error reading ipp.txt: {str(e)}')
+    
+    # Check OpenVPN server
+    if not diagnosis['openvpn_server']['running']:
+        diagnosis['recommendations'].append('Start OpenVPN server: sudo openvpn --config server.ovpn --daemon')
+    
+    # General recommendations
+    if diagnosis['status_log']['undef_cns'] > 0:
+        diagnosis['recommendations'].append('Delete old certificates and reconnect: rm client_*.crt client_*.key')
+    
+    return jsonify(diagnosis)
 
 @app.route('/api/vpn/verify-openvpn', methods=['GET'])
 def verify_openvpn():
@@ -943,6 +1290,34 @@ def health():
         'openvpn_installed': is_openvpn_installed()
     })
 
+# Background thread to clean up old certificate files (older than 30 days)
+def cleanup_old_certificates():
+    """Clean up certificate files for users who haven't connected in 30+ days."""
+    while True:
+        time.sleep(3600)  # Run every hour
+        try:
+            current_time = time.time()
+            cert_files = [f for f in os.listdir('.') if f.startswith('client_') and f.endswith('.crt')]
+            
+            for cert_file in cert_files:
+                try:
+                    # Get file modification time
+                    file_time = os.path.getmtime(cert_file)
+                    age_days = (current_time - file_time) / 86400  # Convert to days
+                    
+                    # Delete if older than 30 days
+                    if age_days > 30:
+                        key_file = cert_file.replace('.crt', '.key')
+                        print(f"[CLEANUP] Removing old certificate: {cert_file} (age: {age_days:.1f} days)")
+                        if os.path.exists(cert_file):
+                            os.remove(cert_file)
+                        if os.path.exists(key_file):
+                            os.remove(key_file)
+                except Exception as e:
+                    print(f"[CLEANUP] Error cleaning up {cert_file}: {e}")
+        except Exception as e:
+            print(f"[CLEANUP] Error in certificate cleanup: {e}")
+
 # Background thread to monitor OpenVPN status files
 def monitor_openvpn_files():
     """Monitor OpenVPN status files and log updates."""
@@ -979,6 +1354,10 @@ def monitor_openvpn_files():
 # Start file monitor thread
 file_monitor_thread = threading.Thread(target=monitor_openvpn_files, daemon=True)
 file_monitor_thread.start()
+
+# Start certificate cleanup thread
+cert_cleanup_thread = threading.Thread(target=cleanup_old_certificates, daemon=True)
+cert_cleanup_thread.start()
 
 if __name__ == '__main__':
     ensure_status_files()  # Ensure files exist before starting
