@@ -182,12 +182,32 @@ echo ""
 
 echo "Starting OpenVPN using server.ovpn…"
 
-# Run OpenVPN as a background daemon using server.ovpn
-sudo openvpn --config server.ovpn --daemon
+# Stop any existing OpenVPN processes first
+sudo pkill -f "openvpn.*server.ovpn" 2>/dev/null
+sleep 1
 
-# Check if OpenVPN started successfully
-if pgrep -x "openvpn" > /dev/null; then
-    echo "OpenVPN started successfully! 🎉"
+# Ensure we're in the right directory
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+cd "$SCRIPT_DIR"
+
+# Run OpenVPN as a background daemon using server.ovpn
+if sudo openvpn --config server.ovpn --daemon 2>&1; then
+    # Wait a moment for OpenVPN to start
+    sleep 3
+    
+    # Check if OpenVPN started successfully
+    if pgrep -f "openvpn.*server.ovpn" > /dev/null; then
+        echo -e "${GREEN}✓ OpenVPN started successfully! 🎉${NC}"
+    else
+        echo -e "${YELLOW}⚠ OpenVPN process not found. Checking logs...${NC}"
+        if [ -f "openvpn.log" ]; then
+            echo "Last few lines of openvpn.log:"
+            tail -10 openvpn.log 2>/dev/null || echo "Cannot read log file"
+        fi
+        echo -e "${YELLOW}You can start OpenVPN manually with: sudo openvpn --config server.ovpn --daemon${NC}"
+    fi
 else
-    echo "Failed to start OpenVPN ❌"
+    echo -e "${RED}✗ Failed to start OpenVPN${NC}"
+    echo -e "${YELLOW}You can start it manually with: sudo openvpn --config server.ovpn --daemon${NC}"
+    echo -e "${YELLOW}Or use: ./restart_openvpn.sh${NC}"
 fi

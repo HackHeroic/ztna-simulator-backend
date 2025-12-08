@@ -270,36 +270,62 @@ def start_openvpn_daemon():
         print(f"Working directory: {cwd}")
         print(f"Config file exists: {os.path.exists('server.ovpn')}")
         
+        # Try to start OpenVPN (will fail without sudo, but we'll catch the error)
         openvpn_process = subprocess.Popen(
             ['openvpn', '--config', 'server.ovpn', '--daemon'],
             stdout=subprocess.PIPE, 
             stderr=subprocess.PIPE,
             cwd=cwd  # Ensure we're in the right directory for config files
         )
-        time.sleep(5)  # Wait longer for startup and status file creation
+        time.sleep(2)  # Wait a bit for process to start or fail
         
+        # Check if process exited immediately (indicates error)
         if openvpn_process.poll() is not None:
             # Process exited, read the error
+            error_msg = "Unknown error"
             try:
-                _, stderr_output = openvpn_process.communicate(timeout=1)
-                error_msg = stderr_output.decode('utf-8') if stderr_output else "Unknown error"
+                stdout_output, stderr_output = openvpn_process.communicate(timeout=2)
+                if stderr_output:
+                    error_msg = stderr_output.decode('utf-8', errors='ignore')
+                elif stdout_output:
+                    error_msg = stdout_output.decode('utf-8', errors='ignore')
             except:
-                error_msg = "Process exited immediately"
+                # Try reading from log file if available
+                try:
+                    if os.path.exists('openvpn.log'):
+                        with open('openvpn.log', 'r') as f:
+                            log_lines = f.readlines()
+                            if log_lines:
+                                error_msg = ''.join(log_lines[-5:])  # Last 5 lines
+                except:
+                    pass
             
             # Check if error is "port already in use" - means OpenVPN is already running
-            if 'address already in use' in error_msg.lower() or 'bind' in error_msg.lower() or 'EADDRINUSE' in error_msg:
+            error_lower = error_msg.lower()
+            if ('address already in use' in error_lower or 'bind' in error_lower or 
+                'EADDRINUSE' in error_msg or 'port is already in use' in error_lower):
                 print("OpenVPN daemon already running (port 1194 in use)")
-                return True  # Treat as success - OpenVPN is running
+                # Double-check by testing if it's actually running
+                if is_openvpn_running():
+                    return True
+                # If not actually running, continue to permission check
             
-            # Check if it's a permission error
-            if 'permission denied' in error_msg.lower() or 'root' in error_msg.lower() or 'EACCES' in error_msg:
-                print("OpenVPN requires root privileges. Please start manually with: sudo openvpn --config server.ovpn --daemon")
-                print("Falling back to mock mode for testing")
+            # Check if it's a permission error (most common issue)
+            if ('permission denied' in error_lower or 'errno=13' in error_msg or 
+                'EACCES' in error_msg or 'root' in error_lower or 
+                'cannot open' in error_lower and 'log' in error_lower):
+                print("⚠ OpenVPN requires root privileges to start.")
+                print("   Error details:", error_msg[:300] if len(error_msg) > 0 else "Permission denied")
+                print("   Please start OpenVPN manually with:")
+                print("   sudo openvpn --config server.ovpn --daemon")
+                print("   Or use: ./restart_openvpn.sh")
+                print("   Falling back to mock mode for testing")
                 return True  # Fall back to mock mode
             
-            print(f"OpenVPN daemon failed to start")
-            print(f"Error: {error_msg[:200]}")  # Print first 200 chars
-            print("Falling back to mock mode for testing")
+            # Other errors
+            print(f"⚠ OpenVPN daemon failed to start")
+            print(f"   Error: {error_msg[:300] if error_msg else 'Unknown error'}")
+            print("   Falling back to mock mode for testing")
             return True  # Fall back to mock mode instead of failing
         
         # Check again if OpenVPN is now running

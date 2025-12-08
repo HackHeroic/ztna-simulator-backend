@@ -8,7 +8,9 @@ echo "Waiting 2 seconds..."
 sleep 2
 
 echo "Starting OpenVPN server with updated config..."
-cd /Users/madhav/ztna-vpntest/ztna-simulator-backend
+# Get the directory where this script is located
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+cd "$SCRIPT_DIR"
 sudo openvpn --config server.ovpn --daemon
 
 echo "Waiting 3 seconds for startup..."
