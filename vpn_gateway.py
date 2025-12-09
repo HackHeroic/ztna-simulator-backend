@@ -1246,96 +1246,42 @@ def format_routes_for_openvpn(routes):
     return routes_config
 
 def get_next_available_ip():
-    """Get the next available IP in the 10.8.0.x range, avoiding duplicates.
-    Checks multiple sources to ensure IP is truly free:
-    - assigned_ips dict
-    - Active backend connections
-    - OpenVPN routing table
-    - OpenVPN status log clients
+    """Get the first available IP in the 10.8.0.x range (2-254).
+    
+    SIMPLE APPROACH:
+    - assigned_ips dict is the source of truth for IP assignments
+    - Always start checking from 10.8.0.2 and find the FIRST free IP
+    - On disconnect, IP is removed from assigned_ips, making it available again
+    - This ensures freed IPs are reused immediately (e.g., disconnect 10.8.0.2, reconnect gets 10.8.0.2)
+    
+    Returns:
+        str: First available IP address (e.g., '10.8.0.2') or None if all IPs are taken
     """
     global ip_counter
     
-    # Get all IPs that are currently in use from all sources
-    used_ips = set()
+    # Get all IPs currently assigned (assigned_ips dict is source of truth)
+    used_ips = set(assigned_ips.keys())
     
-    # 1. Check assigned_ips dict
-    used_ips.update(assigned_ips.keys())
-    
-    # 2. Check active backend connections
+    # Also check active backend connections (in case assigned_ips is out of sync)
     for conn_id, conn in connections.items():
         if conn.get('status') in ['active', 'connected']:
             vpn_ip = conn.get('vpn_ip', '').strip()
             if vpn_ip and vpn_ip.startswith('10.8.0.'):
                 used_ips.add(vpn_ip)
     
-    # 3. Check OpenVPN routing table (most authoritative for actual usage)
-    try:
-        status_data = read_openvpn_status()
-        for route in status_data.get('routing_table', []):
-            route_ip = route.get('virtual_address', '').strip()
-            if route_ip and route_ip.startswith('10.8.0.'):
-                used_ips.add(route_ip)
-        
-        # 4. Check OpenVPN client list
-        for client in status_data.get('clients', []):
-            client_ip = client.get('virtual_address', '').strip()
-            if client_ip and client_ip.startswith('10.8.0.'):
-                used_ips.add(client_ip)
-    except Exception as e:
-        print(f"[VPN] ⚠ Error reading OpenVPN status for IP availability check: {e}")
-        # Continue with assigned_ips and backend connections only
+    print(f"[VPN] Checking IP availability: {len(used_ips)} IP(s) currently assigned: {sorted(used_ips)}")
     
-    # 5. Check ipp.txt for persistent assignments (only if they're active)
-    try:
-        ipp_data = read_ipp_file()
-        # Only consider ipp.txt entries if they're also in routing table or active connections
-        active_ips_from_routing = set()
-        try:
-            status_data = read_openvpn_status()
-            for route in status_data.get('routing_table', []):
-                route_ip = route.get('virtual_address', '').strip()
-                if route_ip:
-                    active_ips_from_routing.add(route_ip)
-        except:
-            pass
-        
-        for assignment in ipp_data.get('assignments', []):
-            ip_addr = assignment.get('ip_address', '').strip()
-            if ip_addr and ip_addr.startswith('10.8.0.'):
-                # Only consider it used if it's also in routing table
-                if ip_addr in active_ips_from_routing:
-                    used_ips.add(ip_addr)
-    except Exception as e:
-        print(f"[VPN] ⚠ Error reading ipp.txt for IP availability check: {e}")
-    
-    print(f"[VPN] Checking IP availability: {len(used_ips)} IP(s) currently in use: {sorted(used_ips)}")
-    
-    # Find next available IP (10.8.0.2 to 10.8.0.254)
-    max_ip = 254
-    start_counter = ip_counter
-    
-    # First, try from current counter position
-    while ip_counter <= max_ip:
-        ip = f'10.8.0.{ip_counter}'
+    # ALWAYS start from 2 and find the FIRST free IP
+    # This ensures we reuse freed IPs immediately (e.g., if 10.8.0.2 is freed, it will be reused)
+    for ip_num in range(2, 255):  # 2 to 254
+        ip = f'10.8.0.{ip_num}'
         if ip not in used_ips:
-            ip_counter += 1  # Increment for next call
-            print(f"[VPN] ✓ Found available IP: {ip} (checked {len(used_ips)} used IPs)")
+            print(f"[VPN] ✓ Found first available IP: {ip} ({len(used_ips)} IPs currently assigned)")
             return ip
-        ip_counter += 1
     
-    # If we've exhausted the range, start from 2 again and find gaps
-    ip_counter = 2
-    while ip_counter <= max_ip:
-        ip = f'10.8.0.{ip_counter}'
-        if ip not in used_ips:
-            ip_counter += 1  # Increment for next call
-            print(f"[VPN] ✓ Found available IP (from start): {ip} (checked {len(used_ips)} used IPs)")
-            return ip
-        ip_counter += 1
-    
-    # If all IPs are taken, return None (shouldn't happen in practice)
-    print(f"[VPN] ⚠ WARNING: All IPs in range 10.8.0.2-10.8.0.254 are assigned!")
-    print(f"[VPN]   Used IPs: {sorted(used_ips)}")
+    # If all IPs are taken, return None
+    print(f"[VPN] ⚠ ERROR: All IPs in range 10.8.0.2-10.8.0.254 are assigned!")
+    print(f"[VPN]   Assigned IPs: {sorted(used_ips)}")
     return None
 
 def find_ip_by_real_address(real_address, status_data, ipp_data):
@@ -1399,6 +1345,10 @@ def connect_vpn():
         # Sync connection status with OpenVPN BEFORE assigning IPs
         # This ensures we have the latest routing table and know which IPs are truly free
         sync_connection_status_with_openvpn()
+        
+        # Clean up stale assigned IPs BEFORE assigning new IPs
+        # This ensures freed IPs are available for reuse
+        cleanup_stale_assigned_ips()
         
         # Decode and validate JWT
         decoded = jwt.decode(vpn_token, SECRET_KEY, algorithms=['HS256'])
@@ -1851,12 +1801,18 @@ def connect_vpn():
                                     for client in status_data.get('clients', []):
                                         if (client.get('common_name', '').strip() == 'UNDEF' and 
                                             client.get('real_address', '') == client_real_address):
-                                            # This is likely our connection, assign next available IP
+                                            # This is likely our connection, assign first available IP
                                             vpn_ip = get_next_available_ip()
                                             if vpn_ip:
-                                                print(f"[VPN] ⚠ Assigning next available IP {vpn_ip} (CN is UNDEF, matched by real_address)")
+                                                print(f"[VPN] ⚠ Assigning first available IP {vpn_ip} (CN is UNDEF, matched by real_address)")
                                                 # Track this assignment
                                                 assigned_ips[vpn_ip] = connection_id
+                                            else:
+                                                print(f"[VPN] ✗ ERROR: No available IPs to assign (CN is UNDEF)")
+                                                return jsonify({
+                                                    'error': 'No available IPs to connect',
+                                                    'message': 'All IP addresses are currently assigned. Please disconnect some connections and try again.'
+                                                }), 503
                                                 break
                                 
                         except Exception as e:
@@ -1864,21 +1820,23 @@ def connect_vpn():
                             if retry == max_retries - 1:
                                 print(f"[VPN] Failed to read IP assignment after all retries")
                     
-                    # If still no IP found, assign next available IP (instead of hardcoded fallback)
+                    # If still no IP found, assign first available IP
                     if not vpn_ip:
                         vpn_ip = get_next_available_ip()
                         if vpn_ip:
-                            print(f"[VPN] ⚠ Could not determine assigned IP from OpenVPN, assigning next available: {vpn_ip}")
+                            print(f"[VPN] ⚠ Could not determine assigned IP from OpenVPN, assigning first available: {vpn_ip}")
                             print(f"[VPN]   This may indicate OpenVPN status log is not updating properly")
                             # Track this assignment
                             assigned_ips[vpn_ip] = connection_id
                         else:
-                            print(f"[VPN] ✗ ERROR: Could not assign IP - all IPs in range are taken!")
-                            # Last resort: use a calculated IP based on connection count
-                            connection_count = len([c for c in connections.values() if c.get('status') in ['active', 'connected']])
-                            vpn_ip = f'10.8.0.{min(2 + connection_count, 254)}'
-                            print(f"[VPN] ⚠ Using calculated IP based on connection count: {vpn_ip}")
-                            assigned_ips[vpn_ip] = connection_id
+                            # No IPs available - return error
+                            print(f"[VPN] ✗ ERROR: No available IPs to assign - all IPs (10.8.0.2-10.8.0.254) are taken!")
+                            return jsonify({
+                                'error': 'No available IPs to connect',
+                                'message': 'All IP addresses in the range 10.8.0.2-10.8.0.254 are currently assigned. Please disconnect some connections and try again.',
+                                'assigned_ips_count': len(assigned_ips),
+                                'assigned_ips': list(assigned_ips.keys())[:10]  # Show first 10 for reference
+                            }), 503  # Service Unavailable
                     
                     result = {
                         'status': 'connected', 
