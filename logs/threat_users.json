@@ -1,0 +1,336 @@
+[
+  {
+    "user_email": "malicious@external.com",
+    "threat_level": "high",
+    "risk_score": 85,
+    "threat_type": "Malicious IP Reputation",
+    "first_seen": "2025-01-15T10:30:00Z",
+    "last_seen": "2025-01-15T14:22:00Z",
+    "attempts": 12,
+    "blocked_attempts": 12,
+    "locations": [
+      "CN",
+      "RU"
+    ],
+    "devices": [
+      {
+        "os_type": "Unknown",
+        "rooted": true,
+        "encrypted": false
+      }
+    ],
+    "activities": [
+      {
+        "timestamp": "2025-01-15T10:30:00Z",
+        "action": "login_attempt",
+        "resource": "database-prod",
+        "ip": "185.220.101.45",
+        "location": "CN",
+        "risk_score": 85,
+        "blocked": true,
+        "reason": "Malicious IP Reputation"
+      },
+      {
+        "timestamp": "2025-01-15T11:15:00Z",
+        "action": "vpn_connection_attempt",
+        "resource": "vpn-gateway",
+        "ip": "185.220.101.45",
+        "location": "CN",
+        "risk_score": 88,
+        "blocked": true,
+        "reason": "High risk score, suspicious location"
+      },
+      {
+        "timestamp": "2025-01-15T12:00:00Z",
+        "action": "access_attempt",
+        "resource": "admin-panel",
+        "ip": "185.220.101.45",
+        "location": "CN",
+        "risk_score": 90,
+        "blocked": true,
+        "reason": "Unauthorized admin panel access attempt"
+      }
+    ]
+  },
+  {
+    "user_email": "suspicious@unknown.org",
+    "threat_level": "medium",
+    "risk_score": 65,
+    "threat_type": "Unusual Location Pattern",
+    "first_seen": "2025-01-14T08:00:00Z",
+    "last_seen": "2025-01-15T09:45:00Z",
+    "attempts": 8,
+    "blocked_attempts": 5,
+    "locations": [
+      "KP",
+      "Unknown"
+    ],
+    "devices": [
+      {
+        "os_type": "Linux",
+        "rooted": false,
+        "encrypted": true
+      }
+    ],
+    "activities": [
+      {
+        "timestamp": "2025-01-14T08:00:00Z",
+        "action": "login_attempt",
+        "resource": "file-server",
+        "ip": "175.45.176.3",
+        "location": "KP",
+        "risk_score": 75,
+        "blocked": true,
+        "reason": "Restricted country access"
+      },
+      {
+        "timestamp": "2025-01-15T09:45:00Z",
+        "action": "access_attempt",
+        "resource": "admin-panel",
+        "ip": "175.45.176.3",
+        "location": "KP",
+        "risk_score": 65,
+        "blocked": false,
+        "reason": "Medium risk - MFA required"
+      }
+    ]
+  },
+  {
+    "user_email": "compromised@company.com",
+    "threat_level": "critical",
+    "risk_score": 95,
+    "threat_type": "Account Compromise",
+    "first_seen": "2025-01-15T12:00:00Z",
+    "last_seen": "2025-01-15T13:30:00Z",
+    "attempts": 15,
+    "blocked_attempts": 15,
+    "locations": [
+      "US",
+      "RU",
+      "CN"
+    ],
+    "devices": [
+      {
+        "os_type": "Windows",
+        "rooted": true,
+        "encrypted": false,
+        "jailbroken": false
+      }
+    ],
+    "activities": [
+      {
+        "timestamp": "2025-01-15T12:00:00Z",
+        "action": "login_attempt",
+        "resource": "database-prod",
+        "ip": "192.168.1.100",
+        "location": "US",
+        "risk_score": 92,
+        "blocked": true,
+        "reason": "Rooted device, rapid location change"
+      },
+      {
+        "timestamp": "2025-01-15T12:30:00Z",
+        "action": "vpn_connection_attempt",
+        "resource": "vpn-gateway",
+        "ip": "45.32.112.89",
+        "location": "RU",
+        "risk_score": 95,
+        "blocked": true,
+        "reason": "Critical risk: velocity anomaly, rooted device"
+      }
+    ]
+  },
+  {
+    "user_email": "tor_user@onion.net",
+    "threat_level": "high",
+    "risk_score": 80,
+    "threat_type": "TOR Exit Node",
+    "first_seen": "2025-01-15T07:00:00Z",
+    "last_seen": "2025-01-15T11:20:00Z",
+    "attempts": 6,
+    "blocked_attempts": 6,
+    "locations": [
+      "Unknown",
+      "Multiple"
+    ],
+    "devices": [
+      {
+        "os_type": "Unknown",
+        "rooted": false,
+        "encrypted": true
+      }
+    ],
+    "activities": [
+      {
+        "timestamp": "2025-01-15T07:00:00Z",
+        "action": "login_attempt",
+        "resource": "file-server",
+        "ip": "185.220.100.242",
+        "location": "Unknown",
+        "risk_score": 80,
+        "blocked": true,
+        "reason": "TOR Exit Node detected"
+      }
+    ]
+  },
+  {
+    "user_email": "brute_force@attack.com",
+    "threat_level": "high",
+    "risk_score": 78,
+    "threat_type": "Brute Force Attack",
+    "first_seen": "2025-01-15T05:00:00Z",
+    "last_seen": "2025-01-15T06:30:00Z",
+    "attempts": 45,
+    "blocked_attempts": 45,
+    "locations": [
+      "BR",
+      "MX"
+    ],
+    "devices": [
+      {
+        "os_type": "Linux",
+        "rooted": false,
+        "encrypted": true
+      }
+    ],
+    "activities": [
+      {
+        "timestamp": "2025-01-15T05:00:00Z",
+        "action": "login_attempt",
+        "resource": "vpn-gateway",
+        "ip": "201.45.123.89",
+        "location": "BR",
+        "risk_score": 78,
+        "blocked": true,
+        "reason": "Rate limit exceeded, brute force pattern"
+      },
+      {
+        "timestamp": "2025-01-15T05:15:00Z",
+        "action": "login_attempt",
+        "resource": "vpn-gateway",
+        "ip": "201.45.123.89",
+        "location": "BR",
+        "risk_score": 82,
+        "blocked": true,
+        "reason": "Repeated failed login attempts"
+      },
+      {
+        "timestamp": "2025-01-15T06:00:00Z",
+        "action": "login_attempt",
+        "resource": "vpn-gateway",
+        "ip": "201.45.123.90",
+        "location": "MX",
+        "risk_score": 80,
+        "blocked": true,
+        "reason": "IP rotation detected, continued brute force"
+      }
+    ]
+  },
+  {
+    "user_email": "suspected_insider@company.com",
+    "threat_level": "medium",
+    "risk_score": 55,
+    "threat_type": "Unusual Access Pattern",
+    "first_seen": "2025-01-14T09:00:00Z",
+    "last_seen": "2025-01-15T08:30:00Z",
+    "attempts": 6,
+    "blocked_attempts": 2,
+    "locations": [
+      "US",
+      "CA"
+    ],
+    "devices": [
+      {
+        "os_type": "Windows",
+        "rooted": false,
+        "encrypted": true
+      }
+    ],
+    "activities": [
+      {
+        "timestamp": "2025-01-14T09:00:00Z",
+        "action": "access_attempt",
+        "resource": "database-prod",
+        "ip": "192.168.1.50",
+        "location": "US",
+        "risk_score": 45,
+        "blocked": false,
+        "reason": "Normal access pattern"
+      },
+      {
+        "timestamp": "2025-01-15T02:00:00Z",
+        "action": "access_attempt",
+        "resource": "admin-panel",
+        "ip": "192.168.1.50",
+        "location": "US",
+        "risk_score": 60,
+        "blocked": true,
+        "reason": "Off-hours access to admin panel"
+      },
+      {
+        "timestamp": "2025-01-15T08:30:00Z",
+        "action": "access_attempt",
+        "resource": "database-prod",
+        "ip": "203.45.67.89",
+        "location": "CA",
+        "risk_score": 55,
+        "blocked": false,
+        "reason": "Rapid location change detected"
+      }
+    ]
+  },
+  {
+    "user_email": "phishing_victim@company.com",
+    "threat_level": "critical",
+    "risk_score": 92,
+    "threat_type": "Account Compromise",
+    "first_seen": "2025-01-15T13:00:00Z",
+    "last_seen": "2025-01-15T13:45:00Z",
+    "attempts": 8,
+    "blocked_attempts": 8,
+    "locations": [
+      "NG",
+      "Unknown"
+    ],
+    "devices": [
+      {
+        "os_type": "Android",
+        "rooted": true,
+        "encrypted": false,
+        "jailbroken": false
+      }
+    ],
+    "activities": [
+      {
+        "timestamp": "2025-01-15T13:00:00Z",
+        "action": "login_attempt",
+        "resource": "vpn-gateway",
+        "ip": "105.112.89.123",
+        "location": "NG",
+        "risk_score": 88,
+        "blocked": true,
+        "reason": "Unusual location, compromised credentials"
+      },
+      {
+        "timestamp": "2025-01-15T13:15:00Z",
+        "action": "access_attempt",
+        "resource": "file-server",
+        "ip": "105.112.89.123",
+        "location": "NG",
+        "risk_score": 90,
+        "blocked": true,
+        "reason": "Rooted device, high-risk location"
+      },
+      {
+        "timestamp": "2025-01-15T13:30:00Z",
+        "action": "access_attempt",
+        "resource": "database-prod",
+        "ip": "105.112.89.124",
+        "location": "Unknown",
+        "risk_score": 95,
+        "blocked": true,
+        "reason": "Critical: Multiple failed attempts, IP rotation"
+      }
+    ]
+  }
+]

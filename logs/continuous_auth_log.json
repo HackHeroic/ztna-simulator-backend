@@ -60,8 +60,8 @@
     "success": true
   },
   {
-    "timestamp": "2025-12-09T16:48:38.243261",
-    "response_time": "2025-12-09T16:48:38.243818",
+    "timestamp": "2025-12-09T18:08:24.952620",
+    "response_time": "2025-12-09T18:08:24.952819",
     "user": "alice@company.com",
     "client_ip": "115.244.141.202",
     "location": "IN",
@@ -70,8 +70,8 @@
     "success": true
   },
   {
-    "timestamp": "2025-12-09T16:48:38.976796",
-    "response_time": "2025-12-09T16:48:38.977018",
+    "timestamp": "2025-12-09T18:08:25.820722",
+    "response_time": "2025-12-09T18:08:25.821027",
     "user": "alice@company.com",
     "client_ip": "115.244.141.202",
     "location": "IN",
@@ -80,9 +80,9 @@
     "success": true
   },
   {
-    "timestamp": "2025-12-09T16:50:39.424018",
-    "response_time": "2025-12-09T16:50:39.425159",
-    "user": "alice@company.com",
+    "timestamp": "2025-12-09T18:09:12.781823",
+    "response_time": "2025-12-09T18:09:12.782255",
+    "user": "bob@company.com",
     "client_ip": "115.244.141.202",
     "location": "IN",
     "status": "verified",
@@ -90,9 +90,9 @@
     "success": true
   },
   {
-    "timestamp": "2025-12-09T16:52:40.972859",
-    "response_time": "2025-12-09T16:52:41.416847",
-    "user": "alice@company.com",
+    "timestamp": "2025-12-09T18:09:13.485767",
+    "response_time": "2025-12-09T18:09:13.486136",
+    "user": "bob@company.com",
     "client_ip": "115.244.141.202",
     "location": "IN",
     "status": "verified",
@@ -100,9 +100,9 @@
     "success": true
   },
   {
-    "timestamp": "2025-12-09T16:53:12.989687",
-    "response_time": "2025-12-09T16:53:12.990211",
-    "user": "alice@company.com",
+    "timestamp": "2025-12-09T18:11:45.032228",
+    "response_time": "2025-12-09T18:11:45.615430",
+    "user": "bob@company.com",
     "client_ip": "115.244.141.202",
     "location": "IN",
     "status": "verified",
@@ -110,9 +110,9 @@
     "success": true
   },
   {
-    "timestamp": "2025-12-09T16:53:14.004291",
-    "response_time": "2025-12-09T16:53:14.423582",
-    "user": "alice@company.com",
+    "timestamp": "2025-12-09T18:13:13.236976",
+    "response_time": "2025-12-09T18:13:13.237450",
+    "user": "bob@company.com",
     "client_ip": "115.244.141.202",
     "location": "IN",
     "status": "verified",
@@ -120,33 +120,13 @@
     "success": true
   },
   {
-    "timestamp": "2025-12-09T16:55:12.614560",
-    "response_time": "2025-12-09T16:55:12.615121",
-    "user": "alice@company.com",
-    "client_ip": "115.244.141.202",
-    "location": "IN",
-    "status": "verified",
-    "risk_score": 0,
-    "success": true
-  },
-  {
-    "timestamp": "2025-12-09T16:56:03.270535",
-    "response_time": "2025-12-09T16:56:03.271087",
-    "user": "alice@company.com",
+    "timestamp": "2025-12-09T18:15:12.555880",
+    "response_time": "2025-12-09T18:15:12.556236",
+    "user": "bob@company.com",
     "client_ip": "115.244.141.202",
     "location": "IN",
     "status": "verified",
     "risk_score": 20,
-    "success": true
-  },
-  {
-    "timestamp": "2025-12-09T16:56:03.975535",
-    "response_time": "2025-12-09T16:56:03.976038",
-    "user": "alice@company.com",
-    "client_ip": "115.244.141.202",
-    "location": "IN",
-    "status": "verified",
-    "risk_score": 0,
     "success": true
   }
 ]

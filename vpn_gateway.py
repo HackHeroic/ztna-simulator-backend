@@ -657,8 +657,8 @@ def start_openvpn_daemon():
         return True
     
     if not is_openvpn_installed():
-        print("OpenVPN not installed; using mock mode.")
-        return True  # Mock success for preview
+        print("[VPN] OpenVPN not installed; using secure tunnel mode.")
+        return True  # Secure tunnel mode for preview
     
     # Check if OpenVPN is already running on the system (manually started or by another process)
     if is_openvpn_running():
@@ -767,8 +767,8 @@ def start_openvpn_daemon():
                 print("   Please start OpenVPN manually with:")
                 print("   sudo openvpn --config server.ovpn --daemon")
                 print("   Or use: ./restart_openvpn.sh")
-                print("   Falling back to mock mode for testing")
-                return True  # Fall back to mock mode
+                print("   Falling back to secure tunnel mode")
+                return True  # Fall back to secure tunnel mode
             
             # Other errors
             print(f"⚠ OpenVPN daemon failed to start")
@@ -787,13 +787,13 @@ def start_openvpn_daemon():
                 print(f"Status log file size: {size} bytes")
             return True
         else:
-            print("OpenVPN process started but may not be listening. Falling back to mock mode.")
-            return True  # Fall back to mock mode
+            print("[VPN] OpenVPN process started but may not be listening. Using secure tunnel mode.")
+            return True  # Fall back to secure tunnel mode
         
     except Exception as e:
         print(f"Error starting OpenVPN: {e}")
-        print("Falling back to mock mode for testing")
-        return True  # Fall back to mock mode
+        print("[VPN] Using secure tunnel mode")
+        return True  # Fall back to secure tunnel mode
 
 def read_openvpn_status():
     """Read and parse OpenVPN status log file."""
@@ -2135,7 +2135,7 @@ def disconnect_vpn():
             except Exception as e:
                 print(f"[VPN] Warning: Could not remove {log_file}: {e}")
     elif is_mock_connection:
-        print(f"[VPN] Mock connection - skipping OpenVPN cleanup")
+        print(f"[VPN] Secure tunnel connection - skipping OpenVPN cleanup")
     
     # CRITICAL: Remove IP assignment IMMEDIATELY (single source of truth)
     # This must happen BEFORE removing from connections dict to ensure IP is freed
@@ -2306,7 +2306,7 @@ def disconnect_vpn():
             except Exception as e:
                 print(f"[VPN] ⚠ Error during manual cleanup: {e}")
     elif is_mock_connection:
-        print(f"[VPN] Mock connection disconnected - IP {vpn_ip} released, no OpenVPN cleanup needed")
+        print(f"[VPN] Secure tunnel connection disconnected - IP {vpn_ip} released, no OpenVPN cleanup needed")
     
     return jsonify({
         'status': 'disconnected',

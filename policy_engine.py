@@ -25,6 +25,7 @@ LOG_DIR.mkdir(exist_ok=True)
 ACCESS_LOG_FILE = LOG_DIR / 'access_log.json'
 ANOMALIES_LOG_FILE = LOG_DIR / 'anomalies_log.json'
 CONTINUOUS_AUTH_LOG_FILE = LOG_DIR / 'continuous_auth_log.json'
+THREAT_USERS_FILE = LOG_DIR / 'threat_users.json'
 
 def load_logs_from_file(file_path, default=[]):
     """Load logs from JSON file."""
@@ -56,6 +57,7 @@ def auto_save_logs():
             save_logs_to_file(ACCESS_LOG_FILE, access_log)
             save_logs_to_file(ANOMALIES_LOG_FILE, anomalies)
             save_logs_to_file(CONTINUOUS_AUTH_LOG_FILE, continuous_auth_requests)
+            save_logs_to_file(THREAT_USERS_FILE, threat_users)
         except Exception as e:
             print(f"Error in auto_save_logs: {e}")
 
@@ -206,6 +208,9 @@ continuous_auth_requests = load_logs_from_file(CONTINUOUS_AUTH_LOG_FILE, [])
 
 # Access tracking with VPN status (loaded from file on startup)
 access_log = load_logs_from_file(ACCESS_LOG_FILE, [])
+
+# Threat users tracking (loaded from file on startup)
+threat_users = load_logs_from_file(THREAT_USERS_FILE, [])
 
 # Admin/Master users (can modify policies and risk factors)
 ADMIN_USERS = ['bob@company.com']  # Users with admin role or clearance 5
@@ -1362,6 +1367,109 @@ def get_resources():
         'resources': resources,
         'count': len(resources)
     })
+
+@app.route('/api/policy/threat-users', methods=['GET'])
+def get_threat_users():
+    """Get threat users list - requires clearance level 3+."""
+    token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    if not token:
+        return jsonify({'error': 'Authentication required'}), 401
+    
+    try:
+        decoded = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
+        user_clearance = decoded.get('clearance', 0)
+        
+        if user_clearance < 3:
+            return jsonify({'error': 'Insufficient clearance level. Requires clearance 3+'}), 403
+        
+        # Filter by threat level based on clearance
+        filtered_threats = threat_users
+        if user_clearance < 4:
+            # Clearance 3 can only see medium/high threats
+            filtered_threats = [t for t in threat_users if t.get('threat_level') != 'critical']
+        elif user_clearance < 5:
+            # Clearance 4 can see all threats but with limited details for critical threats
+            filtered_threats = []
+            for t in threat_users:
+                if t.get('threat_level') == 'critical':
+                    # Remove sensitive details for critical threats
+                    limited_threat = {k: v for k, v in t.items() if k not in ['activities', 'devices', 'locations']}
+                    filtered_threats.append(limited_threat)
+                else:
+                    filtered_threats.append(t)
+        
+        return jsonify({
+            'threat_users': filtered_threats,
+            'total': len(filtered_threats),
+            'user_clearance': user_clearance
+        })
+    except jwt.ExpiredSignatureError:
+        return jsonify({'error': 'Token expired'}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({'error': 'Invalid token'}), 401
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/policy/threat-users/<user_email>', methods=['POST'])
+def update_threat_user(user_email):
+    """Update threat user data - requires clearance level 4+."""
+    token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    if not token:
+        return jsonify({'error': 'Authentication required'}), 401
+    
+    try:
+        decoded = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
+        user_clearance = decoded.get('clearance', 0)
+        
+        if user_clearance < 4:
+            return jsonify({'error': 'Insufficient clearance level. Requires clearance 4+'}), 403
+        
+        data = request.json or {}
+        
+        # Find existing threat user or create new
+        threat_user = None
+        for i, tu in enumerate(threat_users):
+            if tu.get('user_email') == user_email:
+                threat_user = tu
+                # Update existing
+                threat_users[i].update(data)
+                threat_users[i]['last_updated'] = datetime.now().isoformat()
+                threat_user = threat_users[i]
+                break
+        
+        if not threat_user:
+            # Create new threat user
+            new_threat = {
+                'user_email': user_email,
+                'threat_level': data.get('threat_level', 'medium'),
+                'risk_score': data.get('risk_score', 50),
+                'threat_type': data.get('threat_type', 'Unknown'),
+                'first_seen': datetime.now().isoformat(),
+                'last_seen': datetime.now().isoformat(),
+                'attempts': data.get('attempts', 0),
+                'blocked_attempts': data.get('blocked_attempts', 0),
+                'locations': data.get('locations', []),
+                'devices': data.get('devices', []),
+                'activities': data.get('activities', []),
+                'last_updated': datetime.now().isoformat()
+            }
+            threat_users.append(new_threat)
+            threat_user = new_threat
+        
+        # Save to file
+        save_logs_to_file(THREAT_USERS_FILE, threat_users)
+        
+        return jsonify({
+            'success': True,
+            'threat_user': threat_user,
+            'updated_by': decoded.get('email')
+        })
+    except jwt.ExpiredSignatureError:
+        return jsonify({'error': 'Token expired'}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({'error': 'Invalid token'}), 401
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 # ======================================================
 # ADMIN ENDPOINTS - Require admin access
