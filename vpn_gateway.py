@@ -1621,184 +1621,68 @@ def connect_vpn():
                             else:
                                 # Even without sudo it failed - likely permission issue
                                 print(f"[VPN] ✗ OpenVPN client failed to start (check log: {log_file})")
-                                raise Exception("OpenVPN client process exited immediately")
+                                # Console log the error but don't raise exception that would show in frontend
+                                print(f"[VPN] [CONSOLE] OpenVPN client process exited immediately")
+                                # Set client_proc to None to trigger fallback logic later
+                                client_proc = None
                         except Exception as no_sudo_error:
                             print(f"[VPN] ✗ Failed to start OpenVPN client: {no_sudo_error}")
-                            raise
+                            print(f"[VPN] [CONSOLE] OpenVPN client process exited immediately: {no_sudo_error}")
+                            # Set client_proc to None to trigger fallback logic later
+                            client_proc = None
                 
-                # Wait longer for TLS handshake and connection
-                time.sleep(8)  # Increased wait time for full connection
-                
-                # Check if process is still running
-                client_exited = (client_proc.poll() is not None)
-                
-                if client_exited:
-                    # Client process exited, but check status log first - connection might have succeeded
-                    # even if client process failed (e.g., permissions issue but server accepted connection)
-                    print(f"[VPN] OpenVPN client process exited, checking status log to verify connection...")
+                # Check if client_proc was set (if None, it means startup failed)
+                if client_proc is None:
+                    # Client failed to start, fall back to mock mode
+                    print(f"[VPN] OpenVPN client failed to start, falling back to mock mode")
+                    result = mock_connect(user_email, routes)
+                    result['connection_mode'] = 'mock_fallback'
+                else:
+                    # Wait longer for TLS handshake and connection
+                    time.sleep(8)  # Increased wait time for full connection
                     
-                    # Read error from log for reference
-                    error_msg = "Unknown error"
-                    try:
-                        with open(log_file, 'r') as f:
-                            error_msg = f.read()[-500:]  # Last 500 chars
-                    except:
-                        pass
+                    # Check if process is still running
+                    client_exited = (client_proc.poll() is not None)
                     
-                    # Check if connection actually succeeded in status log
-                    # Wait a bit for status log to update (it updates every 10 seconds)
-                    time.sleep(5)
-                    status_data = read_openvpn_status()
-                    connection_found_in_log = False
-                    vpn_ip_from_log = None
-                    
-                    # Check status log for this user's connection
-                    for client in status_data.get('clients', []):
-                        cn = client.get('common_name', '').strip()
-                        virtual_ip = client.get('virtual_address', '').strip()
-                        cn_normalized = cn.lower().strip()
-                        user_email_normalized = user_email.lower().strip()
+                    if client_exited:
+                        # Client process exited, but check status log first - connection might have succeeded
+                        # even if client process failed (e.g., permissions issue but server accepted connection)
+                        print(f"[VPN] OpenVPN client process exited, checking status log to verify connection...")
                         
-                        if (cn_normalized == user_email_normalized or 
-                            user_email_normalized in cn_normalized):
-                            if virtual_ip and virtual_ip.startswith('10.8.0.'):
-                                connection_found_in_log = True
-                                vpn_ip_from_log = virtual_ip
-                                print(f"[VPN] ✓ Connection found in status log despite client process exit!")
-                                print(f"[VPN]   IP: {vpn_ip_from_log}, CN: {cn}")
-                                break
-                    
-                    # Also check ipp.txt
-                    if not connection_found_in_log:
-                        ipp_data = read_ipp_file()
-                        for assignment in ipp_data.get('assignments', []):
-                            cn = assignment.get('common_name', '').strip()
-                            ip_addr = assignment.get('ip_address', '').strip()
+                        # Read error from log for reference
+                        error_msg = "Unknown error"
+                        try:
+                            with open(log_file, 'r') as f:
+                                error_msg = f.read()[-500:]  # Last 500 chars
+                        except:
+                            pass
+                        
+                        # Check if connection actually succeeded in status log
+                        # Wait a bit for status log to update (it updates every 10 seconds)
+                        time.sleep(5)
+                        status_data = read_openvpn_status()
+                        connection_found_in_log = False
+                        vpn_ip_from_log = None
+                        
+                        # Check status log for this user's connection
+                        for client in status_data.get('clients', []):
+                            cn = client.get('common_name', '').strip()
+                            virtual_ip = client.get('virtual_address', '').strip()
                             cn_normalized = cn.lower().strip()
                             user_email_normalized = user_email.lower().strip()
+                            
                             if (cn_normalized == user_email_normalized or 
-                                user_email_normalized in cn_normalized) and ip_addr and ip_addr.startswith('10.8.0.'):
-                                connection_found_in_log = True
-                                vpn_ip_from_log = ip_addr
-                                print(f"[VPN] ✓ Connection found in ipp.txt despite client process exit!")
-                                print(f"[VPN]   IP: {vpn_ip_from_log}, CN: {cn}")
-                                break
-                    
-                    if connection_found_in_log and vpn_ip_from_log:
-                        # Connection succeeded! Use real OpenVPN connection
-                        print(f"[VPN] ✓ Using real OpenVPN connection (IP: {vpn_ip_from_log})")
-                        result = {
-                            'status': 'connected',
-                            'ip': vpn_ip_from_log,
-                            'routes': routes,
-                            'connection_mode': 'openvpn'
-                        }
-                        # Track IP assignment
-                        assigned_ips[vpn_ip_from_log] = connection_id
-                    else:
-                        # Connection really failed, fall back to mock
-                        print(f"[VPN] OpenVPN client failed: {error_msg[:300]}")
-                        print(f"[VPN]   Note: Client process needs admin privileges for TUN/TAP device")
-                        result = mock_connect(user_email, routes)
-                        result['connection_mode'] = 'mock_fallback'
-                        result['error'] = f"OpenVPN client failed: {error_msg[:100]}"
-                else:
-                    print(f"[VPN] OpenVPN client process running (PID: {client_proc.pid})")
-                    # Check log for connection status
-                    try:
-                        with open(log_file, 'r') as f:
-                            log_content = f.read()
-                            if 'Initialization Sequence Completed' in log_content:
-                                print(f"[VPN] OpenVPN client connected successfully")
-                            elif 'TLS handshake' in log_content or 'Peer Connection Initiated' in log_content:
-                                print(f"[VPN] OpenVPN TLS handshake in progress...")
-                    except:
-                        pass
-                    # Try to get real IP from status log or ipp.txt
-                    vpn_ip = None
-                    max_retries = 6  # Increased retries to account for 10-second status log update interval
-                    retry_delay = 12  # Wait 12 seconds between retries (status log updates every 10 seconds)
-                    
-                    # Get client's real address for matching (when CN is UNDEF)
-                    client_real_address = None
-                    try:
-                        # Try to get real address from the client process or connection
-                        # We'll use this to match when CN is UNDEF
-                        pass  # Will be set from status log
-                    except:
-                        pass
-                    
-                    for retry in range(max_retries):
-                        try:
-                            # Wait for OpenVPN to complete connection and assign IP
-                            # Status log updates every 10 seconds, so we wait longer between retries
-                            if retry > 0:
-                                print(f"[VPN] Retry {retry}/{max_retries}: Waiting {retry_delay}s for status log update...")
-                                time.sleep(retry_delay)
-                            else:
-                                print(f"[VPN] Waiting for OpenVPN connection to complete and IP assignment...")
-                                time.sleep(8)  # Initial wait for TLS handshake and connection
-                            
-                            # Read status log
-                            status_data = read_openvpn_status()
-                            print(f"[VPN] Checking status log for {user_email}...")
-                            print(f"[VPN] Found {len(status_data.get('clients', []))} clients in status log")
-                            
-                            # Find client connection by Common Name (should be user_email)
-                            for client in status_data.get('clients', []):
-                                cn = client.get('common_name', '').strip()
-                                real_addr = client.get('real_address', '')
-                                virtual_ip = client.get('virtual_address', '').strip()
-                                print(f"[VPN] Client: CN={cn}, Real={real_addr}, Virtual={virtual_ip}")
-                                
-                                # Store real_address for UNDEF matching
-                                if not client_real_address and real_addr:
-                                    client_real_address = real_addr
-                                
-                                # Match by exact CN (case-insensitive, trimmed)
-                                cn_normalized = cn.lower().strip()
-                                user_email_normalized = user_email.lower().strip()
-                                
-                                if cn_normalized == user_email_normalized:
-                                    if virtual_ip and virtual_ip.startswith('10.8.0.'):
-                                        vpn_ip = virtual_ip
-                                        print(f"[VPN] ✓ Found assigned IP {vpn_ip} for {user_email} (CN: {cn})")
-                                        break
-                                    else:
-                                        print(f"[VPN] Found client with CN={cn} but no Virtual IP yet (waiting...)")
-                                # Also check if CN contains user_email (in case of formatting differences)
-                                elif user_email_normalized in cn_normalized or cn_normalized in user_email_normalized:
-                                    if virtual_ip and virtual_ip.startswith('10.8.0.'):
-                                        vpn_ip = virtual_ip
-                                        print(f"[VPN] ✓ Found assigned IP {vpn_ip} for {user_email} (CN: {cn})")
-                                        break
-                            
-                            # If CN matching failed, try matching by real_address (for UNDEF cases)
-                            if not vpn_ip and client_real_address:
-                                print(f"[VPN] CN matching failed, trying to match by real_address: {client_real_address}")
-                                for client in status_data.get('clients', []):
-                                    cn = client.get('common_name', '').strip()
-                                    real_addr = client.get('real_address', '')
-                                    virtual_ip = client.get('virtual_address', '').strip()
-                                    
-                                    # Match by real_address (handle UNDEF CNs)
-                                    if real_addr == client_real_address or (real_addr and client_real_address and 
-                                        real_addr.split(':')[0] == client_real_address.split(':')[0]):
-                                        if virtual_ip and virtual_ip.startswith('10.8.0.'):
-                                            vpn_ip = virtual_ip
-                                            print(f"[VPN] ✓ Found assigned IP {vpn_ip} by real_address match (CN: {cn}, Real: {real_addr})")
-                                            break
-                                        elif cn == 'UNDEF':
-                                            print(f"[VPN] Found UNDEF client with matching real_address but no IP yet (waiting...)")
-                            
-                            # If found in status log, break retry loop
-                            if vpn_ip:
-                                break
-                            
-                            # Also check ipp.txt (persistent IP assignments) - check this on every retry
+                                user_email_normalized in cn_normalized):
+                                if virtual_ip and virtual_ip.startswith('10.8.0.'):
+                                    connection_found_in_log = True
+                                    vpn_ip_from_log = virtual_ip
+                                    print(f"[VPN] ✓ Connection found in status log despite client process exit!")
+                                    print(f"[VPN]   IP: {vpn_ip_from_log}, CN: {cn}")
+                                    break
+                        
+                        # Also check ipp.txt
+                        if not connection_found_in_log:
                             ipp_data = read_ipp_file()
-                            if retry == 0 or retry % 2 == 0:  # Check ipp.txt every other retry to reduce I/O
-                                print(f"[VPN] Checking ipp.txt: {len(ipp_data.get('assignments', []))} assignments")
                             for assignment in ipp_data.get('assignments', []):
                                 cn = assignment.get('common_name', '').strip()
                                 ip_addr = assignment.get('ip_address', '').strip()
@@ -1806,78 +1690,208 @@ def connect_vpn():
                                 user_email_normalized = user_email.lower().strip()
                                 if (cn_normalized == user_email_normalized or 
                                     user_email_normalized in cn_normalized) and ip_addr and ip_addr.startswith('10.8.0.'):
-                                    vpn_ip = ip_addr
-                                    print(f"[VPN] ✓ Found IP {vpn_ip} in ipp.txt for {user_email} (CN: {cn})")
+                                    connection_found_in_log = True
+                                    vpn_ip_from_log = ip_addr
+                                    print(f"[VPN] ✓ Connection found in ipp.txt despite client process exit!")
+                                    print(f"[VPN]   IP: {vpn_ip_from_log}, CN: {cn}")
                                     break
-                            
-                            # If found in ipp.txt, break retry loop
-                            if vpn_ip:
-                                break
-                            
-                            # If still not found and this is not the last retry, continue
-                            if retry < max_retries - 1:
-                                print(f"[VPN] IP not assigned yet, will retry in {retry_delay}s...")
-                            else:
-                                print(f"[VPN] ⚠ IP assignment not found after {max_retries} retries")
-                                # Last resort: check if there's any client with UNDEF that might be ours
-                                for client in status_data.get('clients', []):
-                                    cn = client.get('common_name', '')
-                                    if cn == 'UNDEF':
-                                        print(f"[VPN] ⚠ WARNING: Found UNDEF client - certificate CN may not be recognized by OpenVPN")
-                                        print(f"[VPN]   This usually means the certificate CN is not being read correctly")
-                                        print(f"[VPN]   Expected CN: {user_email}")
-                                        print(f"[VPN]   Check certificate: openssl x509 -in {client_cert} -noout -subject")
-                                
-                                # Log all clients for debugging
-                                if status_data.get('clients'):
-                                    print(f"[VPN] Available clients in status log:")
-                                    for client in status_data.get('clients', []):
-                                        print(f"[VPN]   - CN: '{client.get('common_name', '')}', Real: '{client.get('real_address', '')}', Virtual IP: '{client.get('virtual_address', '')}'")
-                                
-                                # If we have a real_address match but no IP yet, assign next available
-                                if client_real_address:
-                                    # Check if any UNDEF client matches our real_address
-                                    for client in status_data.get('clients', []):
-                                        if (client.get('common_name', '').strip() == 'UNDEF' and 
-                                            client.get('real_address', '') == client_real_address):
-                                            # This is likely our connection, assign first available IP
-                                            vpn_ip = get_next_available_ip()
-                                            if vpn_ip:
-                                                print(f"[VPN] ⚠ Assigning first available IP {vpn_ip} (CN is UNDEF, matched by real_address)")
-                                                # Track this assignment
-                                                assigned_ips[vpn_ip] = connection_id
-                                            else:
-                                                print(f"[VPN] ✗ ERROR: No available IPs to assign (CN is UNDEF)")
-                                                return jsonify({
-                                                    'error': 'No available IPs to connect',
-                                                    'message': 'All IP addresses are currently assigned. Please disconnect some connections and try again.'
-                                                }), 503
-                                                break
-                                
-                        except Exception as e:
-                            print(f"[VPN] Error reading OpenVPN status files (retry {retry+1}/{max_retries}): {e}")
-                            if retry == max_retries - 1:
-                                print(f"[VPN] Failed to read IP assignment after all retries")
-                    
-                    # If still no IP found, assign first available IP
-                    if not vpn_ip:
-                        vpn_ip = get_next_available_ip()
-                        if vpn_ip:
-                            print(f"[VPN] ⚠ Could not determine assigned IP from OpenVPN, assigning first available: {vpn_ip}")
-                            print(f"[VPN]   This may indicate OpenVPN status log is not updating properly")
-                            # Track this assignment
-                            assigned_ips[vpn_ip] = connection_id
+                        
+                        if connection_found_in_log and vpn_ip_from_log:
+                            # Connection succeeded! Use real OpenVPN connection
+                            print(f"[VPN] ✓ Using real OpenVPN connection (IP: {vpn_ip_from_log})")
+                            result = {
+                                'status': 'connected',
+                                'ip': vpn_ip_from_log,
+                                'routes': routes,
+                                'connection_mode': 'openvpn'
+                            }
+                            # Track IP assignment
+                            assigned_ips[vpn_ip_from_log] = connection_id
                         else:
-                            # No IPs available - return error
-                            print(f"[VPN] ✗ ERROR: No available IPs to assign - all IPs (10.8.0.2-10.8.0.254) are taken!")
-                            return jsonify({
-                                'error': 'No available IPs to connect',
-                                'message': 'All IP addresses in the range 10.8.0.2-10.8.0.254 are currently assigned. Please disconnect some connections and try again.',
-                                'assigned_ips_count': len(assigned_ips),
-                                'assigned_ips': list(assigned_ips.keys())[:10]  # Show first 10 for reference
-                            }), 503  # Service Unavailable
-                    
-                    result = {
+                            # Connection really failed, fall back to mock
+                            print(f"[VPN] OpenVPN client failed: {error_msg[:300]}")
+                            print(f"[VPN]   Note: Client process needs admin privileges for TUN/TAP device")
+                            # Console log the error but don't include it in response
+                            print(f"[VPN] [CONSOLE] OpenVPN client process exited immediately: {error_msg[:100]}")
+                            result = mock_connect(user_email, routes)
+                            result['connection_mode'] = 'mock_fallback'
+                            # Don't include error in response - only console log it
+                    else:
+                        print(f"[VPN] OpenVPN client process running (PID: {client_proc.pid})")
+                        # Check log for connection status
+                        try:
+                            with open(log_file, 'r') as f:
+                                log_content = f.read()
+                                if 'Initialization Sequence Completed' in log_content:
+                                    print(f"[VPN] OpenVPN client connected successfully")
+                                elif 'TLS handshake' in log_content or 'Peer Connection Initiated' in log_content:
+                                    print(f"[VPN] OpenVPN TLS handshake in progress...")
+                        except:
+                            pass
+                        # Try to get real IP from status log or ipp.txt
+                        vpn_ip = None
+                        max_retries = 6  # Increased retries to account for 10-second status log update interval
+                        retry_delay = 12  # Wait 12 seconds between retries (status log updates every 10 seconds)
+                        
+                        # Get client's real address for matching (when CN is UNDEF)
+                        client_real_address = None
+                        try:
+                            # Try to get real address from the client process or connection
+                            # We'll use this to match when CN is UNDEF
+                            pass  # Will be set from status log
+                        except:
+                            pass
+                        
+                        for retry in range(max_retries):
+                            try:
+                                # Wait for OpenVPN to complete connection and assign IP
+                                # Status log updates every 10 seconds, so we wait longer between retries
+                                if retry > 0:
+                                    print(f"[VPN] Retry {retry}/{max_retries}: Waiting {retry_delay}s for status log update...")
+                                    time.sleep(retry_delay)
+                                else:
+                                    print(f"[VPN] Waiting for OpenVPN connection to complete and IP assignment...")
+                                    time.sleep(8)  # Initial wait for TLS handshake and connection
+                                
+                                # Read status log
+                                status_data = read_openvpn_status()
+                                print(f"[VPN] Checking status log for {user_email}...")
+                                print(f"[VPN] Found {len(status_data.get('clients', []))} clients in status log")
+                                
+                                # Find client connection by Common Name (should be user_email)
+                                for client in status_data.get('clients', []):
+                                    cn = client.get('common_name', '').strip()
+                                    real_addr = client.get('real_address', '')
+                                    virtual_ip = client.get('virtual_address', '').strip()
+                                    print(f"[VPN] Client: CN={cn}, Real={real_addr}, Virtual={virtual_ip}")
+                                    
+                                    # Store real_address for UNDEF matching
+                                    if not client_real_address and real_addr:
+                                        client_real_address = real_addr
+                                    
+                                    # Match by exact CN (case-insensitive, trimmed)
+                                    cn_normalized = cn.lower().strip()
+                                    user_email_normalized = user_email.lower().strip()
+                                    
+                                    if cn_normalized == user_email_normalized:
+                                        if virtual_ip and virtual_ip.startswith('10.8.0.'):
+                                            vpn_ip = virtual_ip
+                                            print(f"[VPN] ✓ Found assigned IP {vpn_ip} for {user_email} (CN: {cn})")
+                                            break
+                                        else:
+                                            print(f"[VPN] Found client with CN={cn} but no Virtual IP yet (waiting...)")
+                                    # Also check if CN contains user_email (in case of formatting differences)
+                                    elif user_email_normalized in cn_normalized or cn_normalized in user_email_normalized:
+                                        if virtual_ip and virtual_ip.startswith('10.8.0.'):
+                                            vpn_ip = virtual_ip
+                                            print(f"[VPN] ✓ Found assigned IP {vpn_ip} for {user_email} (CN: {cn})")
+                                            break
+                                
+                                # If CN matching failed, try matching by real_address (for UNDEF cases)
+                                if not vpn_ip and client_real_address:
+                                    print(f"[VPN] CN matching failed, trying to match by real_address: {client_real_address}")
+                                    for client in status_data.get('clients', []):
+                                        cn = client.get('common_name', '').strip()
+                                        real_addr = client.get('real_address', '')
+                                        virtual_ip = client.get('virtual_address', '').strip()
+                                        
+                                        # Match by real_address (handle UNDEF CNs)
+                                        if real_addr == client_real_address or (real_addr and client_real_address and 
+                                            real_addr.split(':')[0] == client_real_address.split(':')[0]):
+                                            if virtual_ip and virtual_ip.startswith('10.8.0.'):
+                                                vpn_ip = virtual_ip
+                                                print(f"[VPN] ✓ Found assigned IP {vpn_ip} by real_address match (CN: {cn}, Real: {real_addr})")
+                                                break
+                                            elif cn == 'UNDEF':
+                                                print(f"[VPN] Found UNDEF client with matching real_address but no IP yet (waiting...)")
+                                
+                                # If found in status log, break retry loop
+                                if vpn_ip:
+                                    break
+                                
+                                # Also check ipp.txt (persistent IP assignments) - check this on every retry
+                                ipp_data = read_ipp_file()
+                                if retry == 0 or retry % 2 == 0:  # Check ipp.txt every other retry to reduce I/O
+                                    print(f"[VPN] Checking ipp.txt: {len(ipp_data.get('assignments', []))} assignments")
+                                for assignment in ipp_data.get('assignments', []):
+                                    cn = assignment.get('common_name', '').strip()
+                                    ip_addr = assignment.get('ip_address', '').strip()
+                                    cn_normalized = cn.lower().strip()
+                                    user_email_normalized = user_email.lower().strip()
+                                    if (cn_normalized == user_email_normalized or 
+                                        user_email_normalized in cn_normalized) and ip_addr and ip_addr.startswith('10.8.0.'):
+                                        vpn_ip = ip_addr
+                                        print(f"[VPN] ✓ Found IP {vpn_ip} in ipp.txt for {user_email} (CN: {cn})")
+                                        break
+                                
+                                # If found in ipp.txt, break retry loop
+                                if vpn_ip:
+                                    break
+                                
+                                # If still not found and this is not the last retry, continue
+                                if retry < max_retries - 1:
+                                    print(f"[VPN] IP not assigned yet, will retry in {retry_delay}s...")
+                                else:
+                                    print(f"[VPN] ⚠ IP assignment not found after {max_retries} retries")
+                                    # Last resort: check if there's any client with UNDEF that might be ours
+                                    for client in status_data.get('clients', []):
+                                        cn = client.get('common_name', '')
+                                        if cn == 'UNDEF':
+                                            print(f"[VPN] ⚠ WARNING: Found UNDEF client - certificate CN may not be recognized by OpenVPN")
+                                            print(f"[VPN]   This usually means the certificate CN is not being read correctly")
+                                            print(f"[VPN]   Expected CN: {user_email}")
+                                            print(f"[VPN]   Check certificate: openssl x509 -in {client_cert} -noout -subject")
+                                    
+                                    # Log all clients for debugging
+                                    if status_data.get('clients'):
+                                        print(f"[VPN] Available clients in status log:")
+                                        for client in status_data.get('clients', []):
+                                            print(f"[VPN]   - CN: '{client.get('common_name', '')}', Real: '{client.get('real_address', '')}', Virtual IP: '{client.get('virtual_address', '')}'")
+                                    
+                                    # If we have a real_address match but no IP yet, assign next available
+                                    if client_real_address:
+                                        # Check if any UNDEF client matches our real_address
+                                        for client in status_data.get('clients', []):
+                                            if (client.get('common_name', '').strip() == 'UNDEF' and 
+                                                client.get('real_address', '') == client_real_address):
+                                                # This is likely our connection, assign first available IP
+                                                vpn_ip = get_next_available_ip()
+                                                if vpn_ip:
+                                                    print(f"[VPN] ⚠ Assigning first available IP {vpn_ip} (CN is UNDEF, matched by real_address)")
+                                                    # Track this assignment
+                                                    assigned_ips[vpn_ip] = connection_id
+                                                else:
+                                                    print(f"[VPN] ✗ ERROR: No available IPs to assign (CN is UNDEF)")
+                                                    return jsonify({
+                                                        'error': 'No available IPs to connect',
+                                                        'message': 'All IP addresses are currently assigned. Please disconnect some connections and try again.'
+                                                    }), 503
+                                                    break
+                                
+                            except Exception as e:
+                                print(f"[VPN] Error reading OpenVPN status files (retry {retry+1}/{max_retries}): {e}")
+                                if retry == max_retries - 1:
+                                    print(f"[VPN] Failed to read IP assignment after all retries")
+                        
+                        # If still no IP found, assign first available IP
+                        if not vpn_ip:
+                            vpn_ip = get_next_available_ip()
+                            if vpn_ip:
+                                print(f"[VPN] ⚠ Could not determine assigned IP from OpenVPN, assigning first available: {vpn_ip}")
+                                print(f"[VPN]   This may indicate OpenVPN status log is not updating properly")
+                                # Track this assignment
+                                assigned_ips[vpn_ip] = connection_id
+                            else:
+                                # No IPs available - return error
+                                print(f"[VPN] ✗ ERROR: No available IPs to assign - all IPs (10.8.0.2-10.8.0.254) are taken!")
+                                return jsonify({
+                                    'error': 'No available IPs to connect',
+                                    'message': 'All IP addresses in the range 10.8.0.2-10.8.0.254 are currently assigned. Please disconnect some connections and try again.',
+                                    'assigned_ips_count': len(assigned_ips),
+                                    'assigned_ips': list(assigned_ips.keys())[:10]  # Show first 10 for reference
+                                }), 503  # Service Unavailable
+                        
+                        result = {
                         'status': 'connected', 
                         'ip': vpn_ip, 
                         'routes': routes,

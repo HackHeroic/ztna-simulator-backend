@@ -2549,371 +2549,7 @@
     "threshold": 20
   },
   {
-    "timestamp": "2025-12-09T18:08:24.742862",
-    "user": "alice@company.com",
-    "resource": "file-server",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": false,
-    "vpn_ip": null,
-    "real_ip": null,
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 50
-  },
-  {
-    "timestamp": "2025-12-09T18:08:24.744301",
-    "user": "alice@company.com",
-    "resource": "database-prod",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": false,
-    "vpn_ip": null,
-    "real_ip": null,
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 30
-  },
-  {
-    "timestamp": "2025-12-09T18:08:24.744838",
-    "user": "alice@company.com",
-    "resource": "database-prod",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": false,
-    "vpn_ip": null,
-    "real_ip": null,
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 30
-  },
-  {
-    "timestamp": "2025-12-09T18:08:24.745085",
-    "user": "alice@company.com",
-    "resource": "vpn-gateway",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": false,
-    "vpn_ip": null,
-    "real_ip": null,
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 50
-  },
-  {
-    "timestamp": "2025-12-09T18:08:25.565409",
-    "user": "alice@company.com",
-    "resource": "database-prod",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": false,
-    "vpn_ip": null,
-    "real_ip": null,
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 30
-  },
-  {
-    "timestamp": "2025-12-09T18:08:25.572637",
-    "user": "alice@company.com",
-    "resource": "database-prod",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": false,
-    "vpn_ip": null,
-    "real_ip": null,
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 30
-  },
-  {
-    "timestamp": "2025-12-09T18:08:25.573516",
-    "user": "alice@company.com",
-    "resource": "file-server",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": false,
-    "vpn_ip": null,
-    "real_ip": null,
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 50
-  },
-  {
-    "timestamp": "2025-12-09T18:08:25.573994",
-    "user": "alice@company.com",
-    "resource": "vpn-gateway",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": false,
-    "vpn_ip": null,
-    "real_ip": null,
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 50
-  },
-  {
-    "timestamp": "2025-12-09T18:08:44.567020",
-    "user": "alice@company.com",
-    "resource": "database-prod",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": false,
-    "vpn_ip": null,
-    "real_ip": null,
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 30
-  },
-  {
-    "timestamp": "2025-12-09T18:08:44.570584",
-    "user": "alice@company.com",
-    "resource": "database-prod",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": false,
-    "vpn_ip": null,
-    "real_ip": null,
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 30
-  },
-  {
-    "timestamp": "2025-12-09T18:08:44.572013",
-    "user": "alice@company.com",
-    "resource": "file-server",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": false,
-    "vpn_ip": null,
-    "real_ip": null,
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 50
-  },
-  {
-    "timestamp": "2025-12-09T18:08:44.572907",
-    "user": "alice@company.com",
-    "resource": "vpn-gateway",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": false,
-    "vpn_ip": null,
-    "real_ip": null,
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 50
-  },
-  {
-    "timestamp": "2025-12-09T18:09:12.414315",
-    "user": "bob@company.com",
-    "resource": "database-prod",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": false,
-    "vpn_ip": null,
-    "real_ip": null,
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 30
-  },
-  {
-    "timestamp": "2025-12-09T18:09:12.418255",
+    "timestamp": "2025-12-09T18:32:50.860751",
     "user": "bob@company.com",
     "resource": "admin-panel",
     "decision": "ALLOW",
@@ -2941,7 +2577,7 @@
     "threshold": 20
   },
   {
-    "timestamp": "2025-12-09T18:09:12.419213",
+    "timestamp": "2025-12-09T18:32:50.861473",
     "user": "bob@company.com",
     "resource": "file-server",
     "decision": "ALLOW",
@@ -2969,35 +2605,7 @@
     "threshold": 50
   },
   {
-    "timestamp": "2025-12-09T18:09:12.420016",
-    "user": "bob@company.com",
-    "resource": "database-prod",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": false,
-    "vpn_ip": null,
-    "real_ip": null,
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 30
-  },
-  {
-    "timestamp": "2025-12-09T18:09:12.420957",
+    "timestamp": "2025-12-09T18:32:50.862194",
     "user": "bob@company.com",
     "resource": "vpn-gateway",
     "decision": "ALLOW",
@@ -3025,7 +2633,7 @@
     "threshold": 50
   },
   {
-    "timestamp": "2025-12-09T18:09:13.395667",
+    "timestamp": "2025-12-09T18:32:50.863294",
     "user": "bob@company.com",
     "resource": "database-prod",
     "decision": "ALLOW",
@@ -3053,7 +2661,7 @@
     "threshold": 30
   },
   {
-    "timestamp": "2025-12-09T18:09:13.404439",
+    "timestamp": "2025-12-09T18:32:50.863731",
     "user": "bob@company.com",
     "resource": "database-prod",
     "decision": "ALLOW",
@@ -3081,2066 +2689,188 @@
     "threshold": 30
   },
   {
-    "timestamp": "2025-12-09T18:09:13.404970",
-    "user": "bob@company.com",
-    "resource": "admin-panel",
-    "decision": "ALLOW",
-    "risk_score": 5,
-    "risk_factors": [],
-    "vpn_connected": false,
-    "vpn_ip": null,
-    "real_ip": null,
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 20
-  },
-  {
-    "timestamp": "2025-12-09T18:09:13.405845",
-    "user": "bob@company.com",
-    "resource": "vpn-gateway",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": false,
-    "vpn_ip": null,
-    "real_ip": null,
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 50
-  },
-  {
-    "timestamp": "2025-12-09T18:09:13.406254",
-    "user": "bob@company.com",
-    "resource": "file-server",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": false,
-    "vpn_ip": null,
-    "real_ip": null,
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 50
-  },
-  {
-    "timestamp": "2025-12-09T18:09:32.160791",
+    "timestamp": "2025-12-09T18:32:52.473196",
     "user": "bob@company.com",
     "resource": "database-prod",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": false,
-    "vpn_ip": null,
-    "real_ip": null,
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 30
-  },
-  {
-    "timestamp": "2025-12-09T18:09:32.163699",
-    "user": "bob@company.com",
-    "resource": "database-prod",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": false,
-    "vpn_ip": null,
-    "real_ip": null,
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 30
-  },
-  {
-    "timestamp": "2025-12-09T18:09:32.165830",
-    "user": "bob@company.com",
-    "resource": "admin-panel",
-    "decision": "ALLOW",
-    "risk_score": 5,
-    "risk_factors": [],
-    "vpn_connected": false,
-    "vpn_ip": null,
-    "real_ip": null,
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 20
-  },
-  {
-    "timestamp": "2025-12-09T18:09:32.167179",
-    "user": "bob@company.com",
-    "resource": "file-server",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": false,
-    "vpn_ip": null,
-    "real_ip": null,
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 50
-  },
-  {
-    "timestamp": "2025-12-09T18:09:32.168512",
-    "user": "bob@company.com",
-    "resource": "vpn-gateway",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": false,
-    "vpn_ip": null,
-    "real_ip": null,
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 50
-  },
-  {
-    "timestamp": "2025-12-09T18:09:50.698199",
-    "user": "bob@company.com",
-    "resource": "vpn-gateway",
-    "decision": "ALLOW",
-    "risk_score": 35,
+    "decision": "DENY",
+    "risk_score": 50,
     "risk_factors": [
       "Unusual location: Local",
+      "Device not encrypted",
       "Velocity anomaly: rapid location change"
     ],
     "vpn_connected": false,
     "vpn_ip": null,
     "real_ip": "127.0.0.1",
     "location": "Local",
-    "device": {
-      "os_type": "Unknown",
-      "os_version": "Unknown",
-      "encrypted": true
-    },
-    "threshold": 50
-  },
-  {
-    "timestamp": "2025-12-09T18:09:52.206217",
-    "user": "bob@company.com",
-    "resource": "database-prod",
-    "decision": "ALLOW",
-    "risk_score": 20,
-    "risk_factors": [
-      "Velocity anomaly: rapid location change"
-    ],
-    "vpn_connected": false,
-    "vpn_ip": null,
-    "real_ip": null,
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 30
-  },
-  {
-    "timestamp": "2025-12-09T18:09:52.210990",
-    "user": "bob@company.com",
-    "resource": "database-prod",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": false,
-    "vpn_ip": null,
-    "real_ip": null,
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 30
-  },
-  {
-    "timestamp": "2025-12-09T18:09:52.213195",
-    "user": "bob@company.com",
-    "resource": "vpn-gateway",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": false,
-    "vpn_ip": null,
-    "real_ip": null,
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 50
-  },
-  {
-    "timestamp": "2025-12-09T18:09:52.214224",
-    "user": "bob@company.com",
-    "resource": "admin-panel",
-    "decision": "ALLOW",
-    "risk_score": 5,
-    "risk_factors": [],
-    "vpn_connected": false,
-    "vpn_ip": null,
-    "real_ip": null,
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 20
-  },
-  {
-    "timestamp": "2025-12-09T18:09:52.214664",
-    "user": "bob@company.com",
-    "resource": "file-server",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": false,
-    "vpn_ip": null,
-    "real_ip": null,
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 50
-  },
-  {
-    "timestamp": "2025-12-09T18:10:13.406363",
-    "user": "bob@company.com",
-    "resource": "database-prod",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 30
-  },
-  {
-    "timestamp": "2025-12-09T18:10:13.465275",
-    "user": "bob@company.com",
-    "resource": "file-server",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 50
-  },
-  {
-    "timestamp": "2025-12-09T18:10:13.595025",
-    "user": "bob@company.com",
-    "resource": "vpn-gateway",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 50
-  },
-  {
-    "timestamp": "2025-12-09T18:10:13.616615",
-    "user": "bob@company.com",
-    "resource": "admin-panel",
-    "decision": "ALLOW",
-    "risk_score": 5,
-    "risk_factors": [],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 20
-  },
-  {
-    "timestamp": "2025-12-09T18:10:13.641907",
-    "user": "bob@company.com",
-    "resource": "database-prod",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 30
-  },
-  {
-    "timestamp": "2025-12-09T18:10:33.465082",
-    "user": "bob@company.com",
-    "resource": "admin-panel",
-    "decision": "ALLOW",
-    "risk_score": 5,
-    "risk_factors": [],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 20
-  },
-  {
-    "timestamp": "2025-12-09T18:10:33.465868",
-    "user": "bob@company.com",
-    "resource": "file-server",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 50
-  },
-  {
-    "timestamp": "2025-12-09T18:10:33.466527",
-    "user": "bob@company.com",
-    "resource": "database-prod",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 30
-  },
-  {
-    "timestamp": "2025-12-09T18:10:33.475622",
-    "user": "bob@company.com",
-    "resource": "database-prod",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 30
-  },
-  {
-    "timestamp": "2025-12-09T18:10:33.673689",
-    "user": "bob@company.com",
-    "resource": "vpn-gateway",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 50
-  },
-  {
-    "timestamp": "2025-12-09T18:11:22.132605",
-    "user": "bob@company.com",
-    "resource": "database-prod",
-    "decision": "ALLOW",
-    "risk_score": 15,
-    "risk_factors": [
-      "Device not encrypted"
-    ],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
     "device": {},
     "threshold": 30
   },
   {
-    "timestamp": "2025-12-09T18:11:23.527416",
+    "timestamp": "2025-12-09T18:32:52.479154",
     "user": "bob@company.com",
-    "resource": "admin-panel",
-    "decision": "ALLOW",
-    "risk_score": 20,
-    "risk_factors": [
-      "Device not encrypted"
-    ],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {},
-    "threshold": 20
-  },
-  {
-    "timestamp": "2025-12-09T18:11:23.561268",
-    "user": "bob@company.com",
-    "resource": "file-server",
+    "resource": "database-prod",
     "decision": "ALLOW",
     "risk_score": 30,
     "risk_factors": [
-      "Unusual location: Unknown",
+      "Unusual location: Local",
       "Device not encrypted"
     ],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "Unknown",
+    "vpn_connected": false,
+    "vpn_ip": null,
+    "real_ip": "127.0.0.1",
+    "location": "Local",
     "device": {},
-    "threshold": 50
+    "threshold": 30
   },
   {
-    "timestamp": "2025-12-09T18:11:23.562011",
+    "timestamp": "2025-12-09T18:32:52.481337",
     "user": "bob@company.com",
     "resource": "vpn-gateway",
     "decision": "ALLOW",
     "risk_score": 30,
     "risk_factors": [
-      "Unusual location: Unknown",
+      "Unusual location: Local",
       "Device not encrypted"
     ],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "Unknown",
+    "vpn_connected": false,
+    "vpn_ip": null,
+    "real_ip": "127.0.0.1",
+    "location": "Local",
     "device": {},
     "threshold": 50
   },
   {
-    "timestamp": "2025-12-09T18:11:23.563334",
-    "user": "bob@company.com",
-    "resource": "database-prod",
-    "decision": "DENY",
-    "risk_score": 50,
-    "risk_factors": [
-      "Unusual location: Unknown",
-      "Device not encrypted",
-      "Velocity anomaly: rapid location change"
-    ],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "Unknown",
-    "device": {},
-    "threshold": 30
-  },
-  {
-    "timestamp": "2025-12-09T18:11:44.212630",
-    "user": "bob@company.com",
-    "resource": "database-prod",
-    "decision": "ALLOW",
-    "risk_score": 20,
-    "risk_factors": [
-      "Velocity anomaly: rapid location change"
-    ],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 30
-  },
-  {
-    "timestamp": "2025-12-09T18:11:44.319548",
+    "timestamp": "2025-12-09T18:32:52.482462",
     "user": "bob@company.com",
     "resource": "file-server",
     "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 50
-  },
-  {
-    "timestamp": "2025-12-09T18:11:44.364780",
-    "user": "bob@company.com",
-    "resource": "admin-panel",
-    "decision": "ALLOW",
-    "risk_score": 5,
-    "risk_factors": [],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 20
-  },
-  {
-    "timestamp": "2025-12-09T18:11:44.526274",
-    "user": "bob@company.com",
-    "resource": "database-prod",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 30
-  },
-  {
-    "timestamp": "2025-12-09T18:11:44.562439",
-    "user": "bob@company.com",
-    "resource": "vpn-gateway",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 50
-  },
-  {
-    "timestamp": "2025-12-09T18:11:45.012496",
-    "user": "bob@company.com",
-    "resource": "admin-panel",
-    "decision": "ALLOW",
-    "risk_score": 5,
-    "risk_factors": [],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 20
-  },
-  {
-    "timestamp": "2025-12-09T18:11:45.014295",
-    "user": "bob@company.com",
-    "resource": "database-prod",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 30
-  },
-  {
-    "timestamp": "2025-12-09T18:11:45.015279",
-    "user": "bob@company.com",
-    "resource": "vpn-gateway",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 50
-  },
-  {
-    "timestamp": "2025-12-09T18:11:45.221726",
-    "user": "bob@company.com",
-    "resource": "database-prod",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 30
-  },
-  {
-    "timestamp": "2025-12-09T18:11:45.550009",
-    "user": "bob@company.com",
-    "resource": "file-server",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 50
-  },
-  {
-    "timestamp": "2025-12-09T18:11:51.897066",
-    "user": "bob@company.com",
-    "resource": "admin-panel",
-    "decision": "ALLOW",
-    "risk_score": 20,
+    "risk_score": 30,
     "risk_factors": [
+      "Unusual location: Local",
       "Device not encrypted"
     ],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {},
-    "threshold": 20
-  },
-  {
-    "timestamp": "2025-12-09T18:11:51.928632",
-    "user": "bob@company.com",
-    "resource": "database-prod",
-    "decision": "ALLOW",
-    "risk_score": 15,
-    "risk_factors": [
-      "Device not encrypted"
-    ],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {},
-    "threshold": 30
-  },
-  {
-    "timestamp": "2025-12-09T18:11:51.958906",
-    "user": "bob@company.com",
-    "resource": "vpn-gateway",
-    "decision": "ALLOW",
-    "risk_score": 15,
-    "risk_factors": [
-      "Device not encrypted"
-    ],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
+    "vpn_connected": false,
+    "vpn_ip": null,
+    "real_ip": "127.0.0.1",
+    "location": "Local",
     "device": {},
     "threshold": 50
   },
   {
-    "timestamp": "2025-12-09T18:11:51.965152",
-    "user": "bob@company.com",
-    "resource": "database-prod",
-    "decision": "ALLOW",
-    "risk_score": 15,
-    "risk_factors": [
-      "Device not encrypted"
-    ],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {},
-    "threshold": 30
-  },
-  {
-    "timestamp": "2025-12-09T18:11:52.028691",
-    "user": "bob@company.com",
-    "resource": "file-server",
-    "decision": "ALLOW",
-    "risk_score": 15,
-    "risk_factors": [
-      "Device not encrypted"
-    ],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {},
-    "threshold": 50
-  },
-  {
-    "timestamp": "2025-12-09T18:12:14.038705",
-    "user": "bob@company.com",
-    "resource": "database-prod",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 30
-  },
-  {
-    "timestamp": "2025-12-09T18:12:14.042021",
-    "user": "bob@company.com",
-    "resource": "database-prod",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 30
-  },
-  {
-    "timestamp": "2025-12-09T18:12:14.053498",
-    "user": "bob@company.com",
-    "resource": "admin-panel",
-    "decision": "ALLOW",
-    "risk_score": 5,
-    "risk_factors": [],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 20
-  },
-  {
-    "timestamp": "2025-12-09T18:12:15.734772",
-    "user": "bob@company.com",
-    "resource": "file-server",
-    "decision": "ALLOW",
-    "risk_score": 35,
-    "risk_factors": [
-      "Unusual location: Unknown",
-      "Velocity anomaly: rapid location change"
-    ],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "Unknown",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 50
-  },
-  {
-    "timestamp": "2025-12-09T18:12:15.735978",
-    "user": "bob@company.com",
-    "resource": "vpn-gateway",
-    "decision": "ALLOW",
-    "risk_score": 15,
-    "risk_factors": [
-      "Unusual location: Unknown"
-    ],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "Unknown",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 50
-  },
-  {
-    "timestamp": "2025-12-09T18:13:02.148045",
-    "user": "bob@company.com",
-    "resource": "vpn-gateway",
-    "decision": "ALLOW",
-    "risk_score": 35,
-    "risk_factors": [
-      "Device not encrypted",
-      "Velocity anomaly: rapid location change"
-    ],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {},
-    "threshold": 50
-  },
-  {
-    "timestamp": "2025-12-09T18:13:02.288101",
-    "user": "bob@company.com",
-    "resource": "admin-panel",
-    "decision": "ALLOW",
-    "risk_score": 20,
-    "risk_factors": [
-      "Device not encrypted"
-    ],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {},
-    "threshold": 20
-  },
-  {
-    "timestamp": "2025-12-09T18:13:02.356936",
-    "user": "bob@company.com",
-    "resource": "file-server",
-    "decision": "ALLOW",
-    "risk_score": 15,
-    "risk_factors": [
-      "Device not encrypted"
-    ],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {},
-    "threshold": 50
-  },
-  {
-    "timestamp": "2025-12-09T18:13:02.357631",
-    "user": "bob@company.com",
-    "resource": "database-prod",
-    "decision": "ALLOW",
-    "risk_score": 15,
-    "risk_factors": [
-      "Device not encrypted"
-    ],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {},
-    "threshold": 30
-  },
-  {
-    "timestamp": "2025-12-09T18:13:02.968510",
-    "user": "bob@company.com",
-    "resource": "database-prod",
-    "decision": "ALLOW",
-    "risk_score": 15,
-    "risk_factors": [
-      "Device not encrypted"
-    ],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {},
-    "threshold": 30
-  },
-  {
-    "timestamp": "2025-12-09T18:13:03.787635",
-    "user": "bob@company.com",
-    "resource": "database-prod",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 30
-  },
-  {
-    "timestamp": "2025-12-09T18:13:03.820992",
-    "user": "bob@company.com",
-    "resource": "admin-panel",
-    "decision": "ALLOW",
-    "risk_score": 5,
-    "risk_factors": [],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 20
-  },
-  {
-    "timestamp": "2025-12-09T18:13:03.821434",
-    "user": "bob@company.com",
-    "resource": "vpn-gateway",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 50
-  },
-  {
-    "timestamp": "2025-12-09T18:13:04.026719",
-    "user": "bob@company.com",
-    "resource": "database-prod",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 30
-  },
-  {
-    "timestamp": "2025-12-09T18:13:04.224612",
-    "user": "bob@company.com",
-    "resource": "file-server",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 50
-  },
-  {
-    "timestamp": "2025-12-09T18:13:13.149721",
-    "user": "bob@company.com",
-    "resource": "database-prod",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 30
-  },
-  {
-    "timestamp": "2025-12-09T18:13:13.207379",
-    "user": "bob@company.com",
-    "resource": "database-prod",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 30
-  },
-  {
-    "timestamp": "2025-12-09T18:13:13.223886",
-    "user": "bob@company.com",
-    "resource": "admin-panel",
-    "decision": "ALLOW",
-    "risk_score": 5,
-    "risk_factors": [],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 20
-  },
-  {
-    "timestamp": "2025-12-09T18:13:13.226389",
-    "user": "bob@company.com",
-    "resource": "file-server",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 50
-  },
-  {
-    "timestamp": "2025-12-09T18:13:13.312656",
-    "user": "bob@company.com",
-    "resource": "vpn-gateway",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 50
-  },
-  {
-    "timestamp": "2025-12-09T18:13:46.083641",
-    "user": "bob@company.com",
-    "resource": "database-prod",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 30
-  },
-  {
-    "timestamp": "2025-12-09T18:13:46.185226",
-    "user": "bob@company.com",
-    "resource": "vpn-gateway",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 50
-  },
-  {
-    "timestamp": "2025-12-09T18:13:46.348702",
-    "user": "bob@company.com",
-    "resource": "database-prod",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 30
-  },
-  {
-    "timestamp": "2025-12-09T18:13:47.804512",
-    "user": "bob@company.com",
-    "resource": "file-server",
-    "decision": "ALLOW",
-    "risk_score": 15,
-    "risk_factors": [
-      "Unusual location: Unknown"
-    ],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "Unknown",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 50
-  },
-  {
-    "timestamp": "2025-12-09T18:13:47.805782",
+    "timestamp": "2025-12-09T18:32:52.484458",
     "user": "bob@company.com",
     "resource": "admin-panel",
     "decision": "DENY",
-    "risk_score": 40,
-    "risk_factors": [
-      "Unusual location: Unknown",
-      "Velocity anomaly: rapid location change"
-    ],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "Unknown",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 20
-  },
-  {
-    "timestamp": "2025-12-09T18:13:54.075739",
-    "user": "bob@company.com",
-    "resource": "database-prod",
-    "decision": "ALLOW",
-    "risk_score": 20,
-    "risk_factors": [
-      "Velocity anomaly: rapid location change"
-    ],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 30
-  },
-  {
-    "timestamp": "2025-12-09T18:13:54.108296",
-    "user": "bob@company.com",
-    "resource": "vpn-gateway",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 50
-  },
-  {
-    "timestamp": "2025-12-09T18:13:54.108911",
-    "user": "bob@company.com",
-    "resource": "admin-panel",
-    "decision": "ALLOW",
-    "risk_score": 5,
-    "risk_factors": [],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 20
-  },
-  {
-    "timestamp": "2025-12-09T18:13:54.109629",
-    "user": "bob@company.com",
-    "resource": "database-prod",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 30
-  },
-  {
-    "timestamp": "2025-12-09T18:13:54.167086",
-    "user": "bob@company.com",
-    "resource": "file-server",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 50
-  },
-  {
-    "timestamp": "2025-12-09T18:14:13.368473",
-    "user": "bob@company.com",
-    "resource": "vpn-gateway",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 50
-  },
-  {
-    "timestamp": "2025-12-09T18:14:13.441445",
-    "user": "bob@company.com",
-    "resource": "database-prod",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 30
-  },
-  {
-    "timestamp": "2025-12-09T18:14:13.455354",
-    "user": "bob@company.com",
-    "resource": "database-prod",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 30
-  },
-  {
-    "timestamp": "2025-12-09T18:14:13.521520",
-    "user": "bob@company.com",
-    "resource": "admin-panel",
-    "decision": "ALLOW",
-    "risk_score": 5,
-    "risk_factors": [],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 20
-  },
-  {
-    "timestamp": "2025-12-09T18:14:15.137141",
-    "user": "bob@company.com",
-    "resource": "file-server",
-    "decision": "ALLOW",
     "risk_score": 35,
     "risk_factors": [
-      "Unusual location: Unknown",
-      "Velocity anomaly: rapid location change"
+      "Unusual location: Local",
+      "Device not encrypted"
     ],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "Unknown",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
+    "vpn_connected": false,
+    "vpn_ip": null,
+    "real_ip": "127.0.0.1",
+    "location": "Local",
+    "device": {},
+    "threshold": 20
+  },
+  {
+    "timestamp": "2025-12-09T18:32:52.487926",
+    "user": "bob@company.com",
+    "resource": "database-prod",
+    "decision": "ALLOW",
+    "risk_score": 30,
+    "risk_factors": [
+      "Unusual location: Local",
+      "Device not encrypted"
+    ],
+    "vpn_connected": false,
+    "vpn_ip": null,
+    "real_ip": "127.0.0.1",
+    "location": "Local",
+    "device": {},
+    "threshold": 30
+  },
+  {
+    "timestamp": "2025-12-09T18:32:52.493481",
+    "user": "bob@company.com",
+    "resource": "database-prod",
+    "decision": "ALLOW",
+    "risk_score": 30,
+    "risk_factors": [
+      "Unusual location: Local",
+      "Device not encrypted"
+    ],
+    "vpn_connected": false,
+    "vpn_ip": null,
+    "real_ip": "127.0.0.1",
+    "location": "Local",
+    "device": {},
+    "threshold": 30
+  },
+  {
+    "timestamp": "2025-12-09T18:32:52.498076",
+    "user": "bob@company.com",
+    "resource": "file-server",
+    "decision": "ALLOW",
+    "risk_score": 30,
+    "risk_factors": [
+      "Unusual location: Local",
+      "Device not encrypted"
+    ],
+    "vpn_connected": false,
+    "vpn_ip": null,
+    "real_ip": "127.0.0.1",
+    "location": "Local",
+    "device": {},
     "threshold": 50
   },
   {
-    "timestamp": "2025-12-09T18:14:35.231420",
+    "timestamp": "2025-12-09T18:32:52.498569",
     "user": "bob@company.com",
     "resource": "vpn-gateway",
+    "decision": "ALLOW",
+    "risk_score": 30,
+    "risk_factors": [
+      "Unusual location: Local",
+      "Device not encrypted"
+    ],
+    "vpn_connected": false,
+    "vpn_ip": null,
+    "real_ip": "127.0.0.1",
+    "location": "Local",
+    "device": {},
+    "threshold": 50
+  },
+  {
+    "timestamp": "2025-12-09T18:32:52.502004",
+    "user": "bob@company.com",
+    "resource": "admin-panel",
+    "decision": "DENY",
+    "risk_score": 35,
+    "risk_factors": [
+      "Unusual location: Local",
+      "Device not encrypted"
+    ],
+    "vpn_connected": false,
+    "vpn_ip": null,
+    "real_ip": "127.0.0.1",
+    "location": "Local",
+    "device": {},
+    "threshold": 20
+  },
+  {
+    "timestamp": "2025-12-09T18:32:53.957270",
+    "user": "bob@company.com",
+    "resource": "database-prod",
     "decision": "ALLOW",
     "risk_score": 20,
     "risk_factors": [
       "Velocity anomaly: rapid location change"
     ],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
+    "vpn_connected": false,
+    "vpn_ip": null,
+    "real_ip": null,
     "location": "IN",
     "device": {
       "os_type": "macOS",
@@ -5157,45 +2887,269 @@
       "language": "en-GB",
       "platform": "MacIntel"
     },
-    "threshold": 50
+    "threshold": 30
   },
   {
-    "timestamp": "2025-12-09T18:14:35.241069",
-    "user": "bob@company.com",
-    "resource": "file-server",
-    "decision": "ALLOW",
-    "risk_score": 0,
-    "risk_factors": [],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 50
-  },
-  {
-    "timestamp": "2025-12-09T18:14:35.273646",
+    "timestamp": "2025-12-09T18:32:53.965540",
     "user": "bob@company.com",
     "resource": "database-prod",
     "decision": "ALLOW",
     "risk_score": 0,
     "risk_factors": [],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
+    "vpn_connected": false,
+    "vpn_ip": null,
+    "real_ip": null,
+    "location": "IN",
+    "device": {
+      "os_type": "macOS",
+      "os_version": "10.15.7",
+      "encrypted": true,
+      "rooted": false,
+      "mdm_enrolled": false,
+      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+      "screen": {
+        "width": 1440,
+        "height": 900
+      },
+      "timezone": "Asia/Calcutta",
+      "language": "en-GB",
+      "platform": "MacIntel"
+    },
+    "threshold": 30
+  },
+  {
+    "timestamp": "2025-12-09T18:32:53.970312",
+    "user": "bob@company.com",
+    "resource": "file-server",
+    "decision": "ALLOW",
+    "risk_score": 0,
+    "risk_factors": [],
+    "vpn_connected": false,
+    "vpn_ip": null,
+    "real_ip": null,
+    "location": "IN",
+    "device": {
+      "os_type": "macOS",
+      "os_version": "10.15.7",
+      "encrypted": true,
+      "rooted": false,
+      "mdm_enrolled": false,
+      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+      "screen": {
+        "width": 1440,
+        "height": 900
+      },
+      "timezone": "Asia/Calcutta",
+      "language": "en-GB",
+      "platform": "MacIntel"
+    },
+    "threshold": 50
+  },
+  {
+    "timestamp": "2025-12-09T18:32:53.971148",
+    "user": "bob@company.com",
+    "resource": "admin-panel",
+    "decision": "ALLOW",
+    "risk_score": 5,
+    "risk_factors": [],
+    "vpn_connected": false,
+    "vpn_ip": null,
+    "real_ip": null,
+    "location": "IN",
+    "device": {
+      "os_type": "macOS",
+      "os_version": "10.15.7",
+      "encrypted": true,
+      "rooted": false,
+      "mdm_enrolled": false,
+      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+      "screen": {
+        "width": 1440,
+        "height": 900
+      },
+      "timezone": "Asia/Calcutta",
+      "language": "en-GB",
+      "platform": "MacIntel"
+    },
+    "threshold": 20
+  },
+  {
+    "timestamp": "2025-12-09T18:32:53.971673",
+    "user": "bob@company.com",
+    "resource": "vpn-gateway",
+    "decision": "ALLOW",
+    "risk_score": 0,
+    "risk_factors": [],
+    "vpn_connected": false,
+    "vpn_ip": null,
+    "real_ip": null,
+    "location": "IN",
+    "device": {
+      "os_type": "macOS",
+      "os_version": "10.15.7",
+      "encrypted": true,
+      "rooted": false,
+      "mdm_enrolled": false,
+      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+      "screen": {
+        "width": 1440,
+        "height": 900
+      },
+      "timezone": "Asia/Calcutta",
+      "language": "en-GB",
+      "platform": "MacIntel"
+    },
+    "threshold": 50
+  },
+  {
+    "timestamp": "2025-12-09T18:32:54.936191",
+    "user": "bob@company.com",
+    "resource": "database-prod",
+    "decision": "ALLOW",
+    "risk_score": 0,
+    "risk_factors": [],
+    "vpn_connected": false,
+    "vpn_ip": null,
+    "real_ip": null,
+    "location": "IN",
+    "device": {
+      "os_type": "macOS",
+      "os_version": "10.15.7",
+      "encrypted": true,
+      "rooted": false,
+      "mdm_enrolled": false,
+      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+      "screen": {
+        "width": 1440,
+        "height": 900
+      },
+      "timezone": "Asia/Calcutta",
+      "language": "en-GB",
+      "platform": "MacIntel"
+    },
+    "threshold": 30
+  },
+  {
+    "timestamp": "2025-12-09T18:32:54.953045",
+    "user": "bob@company.com",
+    "resource": "admin-panel",
+    "decision": "ALLOW",
+    "risk_score": 5,
+    "risk_factors": [],
+    "vpn_connected": false,
+    "vpn_ip": null,
+    "real_ip": null,
+    "location": "IN",
+    "device": {
+      "os_type": "macOS",
+      "os_version": "10.15.7",
+      "encrypted": true,
+      "rooted": false,
+      "mdm_enrolled": false,
+      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+      "screen": {
+        "width": 1440,
+        "height": 900
+      },
+      "timezone": "Asia/Calcutta",
+      "language": "en-GB",
+      "platform": "MacIntel"
+    },
+    "threshold": 20
+  },
+  {
+    "timestamp": "2025-12-09T18:32:54.953913",
+    "user": "bob@company.com",
+    "resource": "database-prod",
+    "decision": "ALLOW",
+    "risk_score": 0,
+    "risk_factors": [],
+    "vpn_connected": false,
+    "vpn_ip": null,
+    "real_ip": null,
+    "location": "IN",
+    "device": {
+      "os_type": "macOS",
+      "os_version": "10.15.7",
+      "encrypted": true,
+      "rooted": false,
+      "mdm_enrolled": false,
+      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+      "screen": {
+        "width": 1440,
+        "height": 900
+      },
+      "timezone": "Asia/Calcutta",
+      "language": "en-GB",
+      "platform": "MacIntel"
+    },
+    "threshold": 30
+  },
+  {
+    "timestamp": "2025-12-09T18:32:54.954931",
+    "user": "bob@company.com",
+    "resource": "file-server",
+    "decision": "ALLOW",
+    "risk_score": 0,
+    "risk_factors": [],
+    "vpn_connected": false,
+    "vpn_ip": null,
+    "real_ip": null,
+    "location": "IN",
+    "device": {
+      "os_type": "macOS",
+      "os_version": "10.15.7",
+      "encrypted": true,
+      "rooted": false,
+      "mdm_enrolled": false,
+      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+      "screen": {
+        "width": 1440,
+        "height": 900
+      },
+      "timezone": "Asia/Calcutta",
+      "language": "en-GB",
+      "platform": "MacIntel"
+    },
+    "threshold": 50
+  },
+  {
+    "timestamp": "2025-12-09T18:32:54.955819",
+    "user": "bob@company.com",
+    "resource": "vpn-gateway",
+    "decision": "ALLOW",
+    "risk_score": 0,
+    "risk_factors": [],
+    "vpn_connected": false,
+    "vpn_ip": null,
+    "real_ip": null,
+    "location": "IN",
+    "device": {
+      "os_type": "macOS",
+      "os_version": "10.15.7",
+      "encrypted": true,
+      "rooted": false,
+      "mdm_enrolled": false,
+      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+      "screen": {
+        "width": 1440,
+        "height": 900
+      },
+      "timezone": "Asia/Calcutta",
+      "language": "en-GB",
+      "platform": "MacIntel"
+    },
+    "threshold": 50
+  },
+  {
+    "timestamp": "2025-12-09T18:33:15.876999",
+    "user": "bob@company.com",
+    "resource": "database-prod",
+    "decision": "ALLOW",
+    "risk_score": 0,
+    "risk_factors": [],
+    "vpn_connected": false,
+    "vpn_ip": null,
     "real_ip": "115.244.141.202",
     "location": "IN",
     "device": {
@@ -5216,14 +3170,14 @@
     "threshold": 30
   },
   {
-    "timestamp": "2025-12-09T18:14:35.432761",
+    "timestamp": "2025-12-09T18:33:15.881288",
     "user": "bob@company.com",
     "resource": "admin-panel",
     "decision": "ALLOW",
     "risk_score": 5,
     "risk_factors": [],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
+    "vpn_connected": false,
+    "vpn_ip": null,
     "real_ip": "115.244.141.202",
     "location": "IN",
     "device": {
@@ -5244,7 +3198,63 @@
     "threshold": 20
   },
   {
-    "timestamp": "2025-12-09T18:14:36.968047",
+    "timestamp": "2025-12-09T18:33:15.923897",
+    "user": "bob@company.com",
+    "resource": "vpn-gateway",
+    "decision": "ALLOW",
+    "risk_score": 0,
+    "risk_factors": [],
+    "vpn_connected": false,
+    "vpn_ip": null,
+    "real_ip": "115.244.141.202",
+    "location": "IN",
+    "device": {
+      "os_type": "macOS",
+      "os_version": "10.15.7",
+      "encrypted": true,
+      "rooted": false,
+      "mdm_enrolled": false,
+      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+      "screen": {
+        "width": 1440,
+        "height": 900
+      },
+      "timezone": "Asia/Calcutta",
+      "language": "en-GB",
+      "platform": "MacIntel"
+    },
+    "threshold": 50
+  },
+  {
+    "timestamp": "2025-12-09T18:33:16.016663",
+    "user": "bob@company.com",
+    "resource": "file-server",
+    "decision": "ALLOW",
+    "risk_score": 0,
+    "risk_factors": [],
+    "vpn_connected": false,
+    "vpn_ip": null,
+    "real_ip": "115.244.141.202",
+    "location": "IN",
+    "device": {
+      "os_type": "macOS",
+      "os_version": "10.15.7",
+      "encrypted": true,
+      "rooted": false,
+      "mdm_enrolled": false,
+      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+      "screen": {
+        "width": 1440,
+        "height": 900
+      },
+      "timezone": "Asia/Calcutta",
+      "language": "en-GB",
+      "platform": "MacIntel"
+    },
+    "threshold": 50
+  },
+  {
+    "timestamp": "2025-12-09T18:33:17.411680",
     "user": "bob@company.com",
     "resource": "database-prod",
     "decision": "DENY",
@@ -5253,8 +3263,8 @@
       "Unusual location: Unknown",
       "Velocity anomaly: rapid location change"
     ],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
+    "vpn_connected": false,
+    "vpn_ip": null,
     "real_ip": "115.244.141.202",
     "location": "Unknown",
     "device": {
@@ -5273,156 +3283,5 @@
       "platform": "MacIntel"
     },
     "threshold": 30
-  },
-  {
-    "timestamp": "2025-12-09T18:15:09.691613",
-    "user": "bob@company.com",
-    "resource": "database-prod",
-    "decision": "ALLOW",
-    "risk_score": 20,
-    "risk_factors": [
-      "Velocity anomaly: rapid location change"
-    ],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "IN",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 30
-  },
-  {
-    "timestamp": "2025-12-09T18:15:11.384766",
-    "user": "bob@company.com",
-    "resource": "database-prod",
-    "decision": "ALLOW",
-    "risk_score": 15,
-    "risk_factors": [
-      "Unusual location: Unknown"
-    ],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "Unknown",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 30
-  },
-  {
-    "timestamp": "2025-12-09T18:15:11.386941",
-    "user": "bob@company.com",
-    "resource": "file-server",
-    "decision": "ALLOW",
-    "risk_score": 15,
-    "risk_factors": [
-      "Unusual location: Unknown"
-    ],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "Unknown",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 50
-  },
-  {
-    "timestamp": "2025-12-09T18:15:11.388365",
-    "user": "bob@company.com",
-    "resource": "vpn-gateway",
-    "decision": "ALLOW",
-    "risk_score": 15,
-    "risk_factors": [
-      "Unusual location: Unknown"
-    ],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "Unknown",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 50
-  },
-  {
-    "timestamp": "2025-12-09T18:15:11.389353",
-    "user": "bob@company.com",
-    "resource": "admin-panel",
-    "decision": "DENY",
-    "risk_score": 40,
-    "risk_factors": [
-      "Unusual location: Unknown",
-      "Velocity anomaly: rapid location change"
-    ],
-    "vpn_connected": true,
-    "vpn_ip": "10.8.0.2",
-    "real_ip": "115.244.141.202",
-    "location": "Unknown",
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "threshold": 20
   }
 ]

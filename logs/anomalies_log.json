@@ -1,6 +1,50 @@
 [
   {
     "user": "bob@company.com",
+    "resource": "admin-panel",
+    "risk": 35,
+    "risk_factors": [
+      "Unusual location: Local",
+      "Device not encrypted"
+    ],
+    "time": "2025-12-09T18:32:52.497808",
+    "location": {
+      "country": "Local",
+      "country_name": "Local Network",
+      "city": "Localhost",
+      "latitude": null,
+      "longitude": null,
+      "isp": "Local",
+      "source": "private_ip",
+      "note": "Private/localhost IP - no geographic location available"
+    },
+    "device": {},
+    "vpn_connected": false
+  },
+  {
+    "user": "bob@company.com",
+    "resource": "admin-panel",
+    "risk": 35,
+    "risk_factors": [
+      "Unusual location: Local",
+      "Device not encrypted"
+    ],
+    "time": "2025-12-09T18:32:52.483220",
+    "location": {
+      "country": "Local",
+      "country_name": "Local Network",
+      "city": "Localhost",
+      "latitude": null,
+      "longitude": null,
+      "isp": "Local",
+      "source": "private_ip",
+      "note": "Private/localhost IP - no geographic location available"
+    },
+    "device": {},
+    "vpn_connected": false
+  },
+  {
+    "user": "bob@company.com",
     "resource": "database-prod",
     "risk": 50,
     "risk_factors": [
@@ -8,7 +52,7 @@
       "Device not encrypted",
       "Velocity anomaly: rapid location change"
     ],
-    "time": "2025-12-09T16:23:57.748758",
+    "time": "2025-12-09T18:32:52.471460",
     "location": {
       "country": "Local",
       "country_name": "Local Network",
@@ -23,48 +67,403 @@
     "vpn_connected": false
   },
   {
-    "user": "bob@company.com",
+    "user": "grace@company.com",
     "resource": "admin-panel",
-    "risk": 35,
+    "risk": 76,
     "risk_factors": [
-      "Unusual location: Local",
-      "Device not encrypted"
+      "Unusual location: CN",
+      "Rooted/jailbroken device"
     ],
-    "time": "2025-12-09T16:23:57.751761",
+    "time": "2025-12-08T14:02:37.453589",
     "location": {
-      "country": "Local",
-      "country_name": "Local Network",
-      "city": "Localhost",
-      "latitude": null,
-      "longitude": null,
-      "isp": "Local",
-      "source": "private_ip",
-      "note": "Private/localhost IP - no geographic location available"
+      "country": "KP",
+      "country_name": "North Korea",
+      "city": "Pyongyang",
+      "latitude": 39.0392,
+      "longitude": 125.7625,
+      "isp": "Korea Post",
+      "source": "ip-api"
     },
-    "device": {},
+    "device": {
+      "os_type": "Windows",
+      "os_version": "11",
+      "encrypted": true,
+      "rooted": false
+    },
+    "vpn_connected": true
+  },
+  {
+    "user": "grace@company.com",
+    "resource": "admin-panel",
+    "risk": 73,
+    "risk_factors": [
+      "MFA bypass attempt",
+      "Authentication anomaly",
+      "Suspicious login pattern"
+    ],
+    "time": "2025-12-08T11:47:37.453589",
+    "location": {
+      "country": "KP",
+      "country_name": "North Korea",
+      "city": "Pyongyang",
+      "latitude": 39.0392,
+      "longitude": 125.7625,
+      "isp": "Korea Post",
+      "source": "ip-api"
+    },
+    "device": {
+      "os_type": "Windows",
+      "os_version": "11",
+      "encrypted": true,
+      "rooted": false
+    },
     "vpn_connected": false
   },
   {
-    "user": "bob@company.com",
+    "user": "grace@company.com",
     "resource": "admin-panel",
-    "risk": 35,
+    "risk": 70,
     "risk_factors": [
-      "Unusual location: Local",
-      "Device not encrypted"
+      "Multiple failed access attempts",
+      "Brute force pattern detected"
     ],
-    "time": "2025-12-09T16:23:58.023188",
+    "time": "2025-12-08T09:32:37.453589",
     "location": {
-      "country": "Local",
-      "country_name": "Local Network",
-      "city": "Localhost",
-      "latitude": null,
-      "longitude": null,
-      "isp": "Local",
-      "source": "private_ip",
-      "note": "Private/localhost IP - no geographic location available"
+      "country": "KP",
+      "country_name": "North Korea",
+      "city": "Pyongyang",
+      "latitude": 39.0392,
+      "longitude": 125.7625,
+      "isp": "Korea Post",
+      "source": "ip-api"
     },
-    "device": {},
+    "device": {
+      "os_type": "Windows",
+      "os_version": "11",
+      "encrypted": true,
+      "rooted": false
+    },
+    "vpn_connected": true
+  },
+  {
+    "user": "frank@company.com",
+    "resource": "database-prod",
+    "risk": 68,
+    "risk_factors": [
+      "Unauthorized resource access attempt",
+      "Insufficient clearance level",
+      "Privilege escalation attempt"
+    ],
+    "time": "2025-12-08T08:47:37.453589",
+    "location": {
+      "country": "US",
+      "country_name": "United States",
+      "city": "New York",
+      "latitude": 40.7128,
+      "longitude": -74.006,
+      "isp": "Verizon",
+      "source": "ip-api"
+    },
+    "device": {
+      "os_type": "Linux",
+      "os_version": "4.0",
+      "encrypted": false,
+      "rooted": false
+    },
     "vpn_connected": false
+  },
+  {
+    "user": "eve@company.com",
+    "resource": "vpn-gateway",
+    "risk": 66,
+    "risk_factors": [
+      "Off-hours access attempt",
+      "Unusual access time"
+    ],
+    "time": "2025-12-08T08:02:37.453589",
+    "location": {
+      "country": "BR",
+      "country_name": "Brazil",
+      "city": "S\u00e3o Paulo",
+      "latitude": -23.5505,
+      "longitude": -46.6333,
+      "isp": "Vivo",
+      "source": "ip-api"
+    },
+    "device": {
+      "os_type": "iOS",
+      "os_version": "12.0",
+      "encrypted": true,
+      "rooted": true,
+      "jailbroken": true
+    },
+    "vpn_connected": true
+  },
+  {
+    "user": "frank@company.com",
+    "resource": "database-prod",
+    "risk": 65,
+    "risk_factors": [
+      "Off-hours access attempt",
+      "Unusual access time"
+    ],
+    "time": "2025-12-08T06:32:37.453589",
+    "location": {
+      "country": "US",
+      "country_name": "United States",
+      "city": "New York",
+      "latitude": 40.7128,
+      "longitude": -74.006,
+      "isp": "Verizon",
+      "source": "ip-api"
+    },
+    "device": {
+      "os_type": "Linux",
+      "os_version": "4.0",
+      "encrypted": false,
+      "rooted": false
+    },
+    "vpn_connected": true
+  },
+  {
+    "user": "eve@company.com",
+    "resource": "vpn-gateway",
+    "risk": 63,
+    "risk_factors": [
+      "TOR Exit Node detected",
+      "Anonymous proxy usage",
+      "High-risk IP reputation"
+    ],
+    "time": "2025-12-08T05:47:37.453589",
+    "location": {
+      "country": "BR",
+      "country_name": "Brazil",
+      "city": "S\u00e3o Paulo",
+      "latitude": -23.5505,
+      "longitude": -46.6333,
+      "isp": "Vivo",
+      "source": "ip-api"
+    },
+    "device": {
+      "os_type": "iOS",
+      "os_version": "12.0",
+      "encrypted": true,
+      "rooted": true,
+      "jailbroken": true
+    },
+    "vpn_connected": false
+  },
+  {
+    "user": "eve@company.com",
+    "resource": "vpn-gateway",
+    "risk": 60,
+    "risk_factors": [
+      "Unusual location: KP",
+      "High-risk country"
+    ],
+    "time": "2025-12-08T03:32:37.453589",
+    "location": {
+      "country": "BR",
+      "country_name": "Brazil",
+      "city": "S\u00e3o Paulo",
+      "latitude": -23.5505,
+      "longitude": -46.6333,
+      "isp": "Vivo",
+      "source": "ip-api"
+    },
+    "device": {
+      "os_type": "iOS",
+      "os_version": "12.0",
+      "encrypted": true,
+      "rooted": true,
+      "jailbroken": true
+    },
+    "vpn_connected": true
+  },
+  {
+    "user": "diana@company.com",
+    "resource": "file-server",
+    "risk": 58,
+    "risk_factors": [
+      "Unusual location: RU",
+      "Rooted/jailbroken device",
+      "Outdated OS: 7.0 < 10.0"
+    ],
+    "time": "2025-12-08T02:47:37.453589",
+    "location": {
+      "country": "IN",
+      "country_name": "India",
+      "city": "Mumbai",
+      "latitude": 19.076,
+      "longitude": 72.8777,
+      "isp": "Reliance Jio",
+      "source": "ip-api"
+    },
+    "device": {
+      "os_type": "Android",
+      "os_version": "9.0",
+      "encrypted": true,
+      "rooted": true
+    },
+    "vpn_connected": false
+  },
+  {
+    "user": "charlie@company.com",
+    "resource": "admin-panel",
+    "risk": 56,
+    "risk_factors": [
+      "Unusual location: CN",
+      "Public WiFi detected"
+    ],
+    "time": "2025-12-08T02:02:37.453589",
+    "location": {
+      "country": "RU",
+      "country_name": "Russia",
+      "city": "Moscow",
+      "latitude": 55.7558,
+      "longitude": 37.6173,
+      "isp": "Rostelecom",
+      "source": "ip-api"
+    },
+    "device": {
+      "os_type": "Windows",
+      "os_version": "8.0",
+      "encrypted": false,
+      "rooted": false
+    },
+    "vpn_connected": true
+  },
+  {
+    "user": "diana@company.com",
+    "resource": "file-server",
+    "risk": 55,
+    "risk_factors": [
+      "Unusual location: CN",
+      "Public WiFi detected"
+    ],
+    "time": "2025-12-08T00:32:37.453589",
+    "location": {
+      "country": "IN",
+      "country_name": "India",
+      "city": "Mumbai",
+      "latitude": 19.076,
+      "longitude": 72.8777,
+      "isp": "Reliance Jio",
+      "source": "ip-api"
+    },
+    "device": {
+      "os_type": "Android",
+      "os_version": "9.0",
+      "encrypted": true,
+      "rooted": true
+    },
+    "vpn_connected": true
+  },
+  {
+    "user": "charlie@company.com",
+    "resource": "admin-panel",
+    "risk": 53,
+    "risk_factors": [
+      "Unusual location: BR",
+      "Rooted/jailbroken device",
+      "Outdated OS: 9.0 < 12.0"
+    ],
+    "time": "2025-12-07T23:47:37.453589",
+    "location": {
+      "country": "RU",
+      "country_name": "Russia",
+      "city": "Moscow",
+      "latitude": 55.7558,
+      "longitude": 37.6173,
+      "isp": "Rostelecom",
+      "source": "ip-api"
+    },
+    "device": {
+      "os_type": "Windows",
+      "os_version": "8.0",
+      "encrypted": false,
+      "rooted": false
+    },
+    "vpn_connected": false
+  },
+  {
+    "user": "charlie@company.com",
+    "resource": "admin-panel",
+    "risk": 50,
+    "risk_factors": [
+      "Unusual location: IN",
+      "Velocity anomaly: rapid location change"
+    ],
+    "time": "2025-12-07T21:32:37.453589",
+    "location": {
+      "country": "RU",
+      "country_name": "Russia",
+      "city": "Moscow",
+      "latitude": 55.7558,
+      "longitude": 37.6173,
+      "isp": "Rostelecom",
+      "source": "ip-api"
+    },
+    "device": {
+      "os_type": "Windows",
+      "os_version": "8.0",
+      "encrypted": false,
+      "rooted": false
+    },
+    "vpn_connected": true
+  },
+  {
+    "user": "alice@company.com",
+    "resource": "database-prod",
+    "risk": 48,
+    "risk_factors": [
+      "Unusual location: RU",
+      "Outdated OS: 8.0 < 11.0",
+      "Public WiFi detected"
+    ],
+    "time": "2025-12-07T20:47:37.453589",
+    "location": {
+      "country": "CN",
+      "country_name": "China",
+      "city": "Beijing",
+      "latitude": 39.9042,
+      "longitude": 116.4074,
+      "isp": "China Telecom",
+      "source": "ip-api"
+    },
+    "device": {
+      "os_type": "macOS",
+      "os_version": "10.15",
+      "encrypted": false,
+      "rooted": true
+    },
+    "vpn_connected": false
+  },
+  {
+    "user": "alice@company.com",
+    "resource": "database-prod",
+    "risk": 45,
+    "risk_factors": [
+      "Unusual location: CN",
+      "Rooted/jailbroken device"
+    ],
+    "time": "2025-12-07T18:32:37.453589",
+    "location": {
+      "country": "CN",
+      "country_name": "China",
+      "city": "Beijing",
+      "latitude": 39.9042,
+      "longitude": 116.4074,
+      "isp": "China Telecom",
+      "source": "ip-api"
+    },
+    "device": {
+      "os_type": "macOS",
+      "os_version": "10.15",
+      "encrypted": false,
+      "rooted": true
+    },
+    "vpn_connected": true
   },
   {
     "user": "bob@company.com",
@@ -74,7 +473,7 @@
       "Unusual location: Unknown",
       "Velocity anomaly: rapid location change"
     ],
-    "time": "2025-12-09T16:26:13.680594",
+    "time": "2025-12-09T18:33:17.410394",
     "location": {
       "city": "Unknown",
       "country": "Unknown",
@@ -101,284 +500,5 @@
       "platform": "MacIntel"
     },
     "vpn_connected": false
-  },
-  {
-    "user": "bob@company.com",
-    "resource": "database-prod",
-    "risk": 50,
-    "risk_factors": [
-      "Unusual location: Local",
-      "Device not encrypted",
-      "Velocity anomaly: rapid location change"
-    ],
-    "time": "2025-12-09T16:26:58.645202",
-    "location": {
-      "country": "Local",
-      "country_name": "Local Network",
-      "city": "Localhost",
-      "latitude": null,
-      "longitude": null,
-      "isp": "Local",
-      "source": "private_ip",
-      "note": "Private/localhost IP - no geographic location available"
-    },
-    "device": {},
-    "vpn_connected": false
-  },
-  {
-    "user": "bob@company.com",
-    "resource": "admin-panel",
-    "risk": 35,
-    "risk_factors": [
-      "Unusual location: Local",
-      "Device not encrypted"
-    ],
-    "time": "2025-12-09T16:26:58.647878",
-    "location": {
-      "country": "Local",
-      "country_name": "Local Network",
-      "city": "Localhost",
-      "latitude": null,
-      "longitude": null,
-      "isp": "Local",
-      "source": "private_ip",
-      "note": "Private/localhost IP - no geographic location available"
-    },
-    "device": {},
-    "vpn_connected": false
-  },
-  {
-    "user": "bob@company.com",
-    "resource": "database-prod",
-    "risk": 35,
-    "risk_factors": [
-      "Unusual location: Unknown",
-      "Velocity anomaly: rapid location change"
-    ],
-    "time": "2025-12-09T16:27:03.578712",
-    "location": {
-      "city": "Unknown",
-      "country": "Unknown",
-      "country_name": "Unknown",
-      "isp": "Unknown",
-      "latitude": null,
-      "longitude": null,
-      "note": "Geolocation lookup failed",
-      "source": "fallback"
-    },
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "vpn_connected": false
-  },
-  {
-    "user": "bob@company.com",
-    "resource": "database-prod",
-    "risk": 50,
-    "risk_factors": [
-      "Unusual location: Local",
-      "Device not encrypted",
-      "Velocity anomaly: rapid location change"
-    ],
-    "time": "2025-12-09T16:30:37.906461",
-    "location": {
-      "country": "Local",
-      "country_name": "Local Network",
-      "city": "Localhost",
-      "latitude": null,
-      "longitude": null,
-      "isp": "Local",
-      "source": "private_ip",
-      "note": "Private/localhost IP - no geographic location available"
-    },
-    "device": {},
-    "vpn_connected": false
-  },
-  {
-    "user": "bob@company.com",
-    "resource": "admin-panel",
-    "risk": 35,
-    "risk_factors": [
-      "Unusual location: Local",
-      "Device not encrypted"
-    ],
-    "time": "2025-12-09T16:30:37.907614",
-    "location": {
-      "country": "Local",
-      "country_name": "Local Network",
-      "city": "Localhost",
-      "latitude": null,
-      "longitude": null,
-      "isp": "Local",
-      "source": "private_ip",
-      "note": "Private/localhost IP - no geographic location available"
-    },
-    "device": {},
-    "vpn_connected": false
-  },
-  {
-    "user": "bob@company.com",
-    "resource": "admin-panel",
-    "risk": 35,
-    "risk_factors": [
-      "Unusual location: Local",
-      "Device not encrypted"
-    ],
-    "time": "2025-12-09T16:31:37.791111",
-    "location": {
-      "country": "Local",
-      "country_name": "Local Network",
-      "city": "Localhost",
-      "latitude": null,
-      "longitude": null,
-      "isp": "Local",
-      "source": "private_ip",
-      "note": "Private/localhost IP - no geographic location available"
-    },
-    "device": {},
-    "vpn_connected": false
-  },
-  {
-    "user": "bob@company.com",
-    "resource": "database-prod",
-    "risk": 50,
-    "risk_factors": [
-      "Unusual location: Unknown",
-      "Device not encrypted",
-      "Velocity anomaly: rapid location change"
-    ],
-    "time": "2025-12-09T18:11:23.560169",
-    "location": {
-      "city": "Unknown",
-      "country": "Unknown",
-      "country_name": "Unknown",
-      "latitude": null,
-      "longitude": null,
-      "isp": "Unknown",
-      "source": "fallback",
-      "note": "Geolocation lookup failed"
-    },
-    "device": {},
-    "vpn_connected": true
-  },
-  {
-    "user": "bob@company.com",
-    "resource": "admin-panel",
-    "risk": 40,
-    "risk_factors": [
-      "Unusual location: Unknown",
-      "Velocity anomaly: rapid location change"
-    ],
-    "time": "2025-12-09T18:13:47.802132",
-    "location": {
-      "city": "Unknown",
-      "country": "Unknown",
-      "country_name": "Unknown",
-      "latitude": null,
-      "longitude": null,
-      "isp": "Unknown",
-      "source": "fallback",
-      "note": "Geolocation lookup failed"
-    },
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "vpn_connected": true
-  },
-  {
-    "user": "bob@company.com",
-    "resource": "database-prod",
-    "risk": 35,
-    "risk_factors": [
-      "Unusual location: Unknown",
-      "Velocity anomaly: rapid location change"
-    ],
-    "time": "2025-12-09T18:14:36.965280",
-    "location": {
-      "city": "Unknown",
-      "country": "Unknown",
-      "country_name": "Unknown",
-      "latitude": null,
-      "longitude": null,
-      "isp": "Unknown",
-      "source": "fallback",
-      "note": "Geolocation lookup failed"
-    },
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "vpn_connected": true
-  },
-  {
-    "user": "bob@company.com",
-    "resource": "admin-panel",
-    "risk": 40,
-    "risk_factors": [
-      "Unusual location: Unknown",
-      "Velocity anomaly: rapid location change"
-    ],
-    "time": "2025-12-09T18:15:11.384044",
-    "location": {
-      "city": "Unknown",
-      "country": "Unknown",
-      "country_name": "Unknown",
-      "latitude": null,
-      "longitude": null,
-      "isp": "Unknown",
-      "source": "fallback",
-      "note": "Geolocation lookup failed"
-    },
-    "device": {
-      "os_type": "macOS",
-      "os_version": "10.15.7",
-      "encrypted": true,
-      "rooted": false,
-      "mdm_enrolled": false,
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "screen": {
-        "width": 1440,
-        "height": 900
-      },
-      "timezone": "Asia/Calcutta",
-      "language": "en-GB",
-      "platform": "MacIntel"
-    },
-    "vpn_connected": true
   }
 ]

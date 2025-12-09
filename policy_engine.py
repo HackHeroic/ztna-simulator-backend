@@ -200,6 +200,81 @@ user_access_history = {}  # Track access patterns
 # Anomaly log (loaded from file on startup)
 anomalies = load_logs_from_file(ANOMALIES_LOG_FILE, [])
 
+def seed_sample_anomalies():
+    """Seed realistic sample anomalies with different user names for demonstration."""
+    sample_users = [
+        'alice@company.com',
+        'charlie@company.com', 
+        'diana@company.com',
+        'eve@company.com',
+        'frank@company.com',
+        'grace@company.com'
+    ]
+    sample_resources = ['database-prod', 'admin-panel', 'file-server', 'vpn-gateway']
+    sample_locations = [
+        {'country': 'CN', 'country_name': 'China', 'city': 'Beijing', 'latitude': 39.9042, 'longitude': 116.4074, 'isp': 'China Telecom', 'source': 'ip-api'},
+        {'country': 'RU', 'country_name': 'Russia', 'city': 'Moscow', 'latitude': 55.7558, 'longitude': 37.6173, 'isp': 'Rostelecom', 'source': 'ip-api'},
+        {'country': 'IN', 'country_name': 'India', 'city': 'Mumbai', 'latitude': 19.0760, 'longitude': 72.8777, 'isp': 'Reliance Jio', 'source': 'ip-api'},
+        {'country': 'BR', 'country_name': 'Brazil', 'city': 'São Paulo', 'latitude': -23.5505, 'longitude': -46.6333, 'isp': 'Vivo', 'source': 'ip-api'},
+        {'country': 'US', 'country_name': 'United States', 'city': 'New York', 'latitude': 40.7128, 'longitude': -74.0060, 'isp': 'Verizon', 'source': 'ip-api'},
+        {'country': 'KP', 'country_name': 'North Korea', 'city': 'Pyongyang', 'latitude': 39.0392, 'longitude': 125.7625, 'isp': 'Korea Post', 'source': 'ip-api'},
+        {'country': 'GB', 'country_name': 'United Kingdom', 'city': 'London', 'latitude': 51.5074, 'longitude': -0.1278, 'isp': 'BT Group', 'source': 'ip-api'},
+    ]
+    sample_risk_factors = [
+        ['Unusual location: CN', 'Rooted/jailbroken device', 'Device not encrypted'],
+        ['Unusual location: RU', 'Outdated OS: 8.0 < 11.0', 'Public WiFi detected'],
+        ['Unusual location: IN', 'Velocity anomaly: rapid location change', 'Device not encrypted'],
+        ['Unusual location: BR', 'Rooted/jailbroken device', 'Outdated OS: 9.0 < 12.0'],
+        ['Unusual location: CN', 'Public WiFi detected', 'Device not encrypted', 'Velocity anomaly: rapid location change'],
+        ['Unusual location: RU', 'Rooted/jailbroken device', 'Outdated OS: 7.0 < 10.0'],
+        ['Unusual location: KP', 'High-risk country', 'Suspicious IP range'],
+        ['TOR Exit Node detected', 'Anonymous proxy usage', 'High-risk IP reputation'],
+        ['Off-hours access attempt', 'Unusual access time', 'Non-VPN access to sensitive resource'],
+        ['Unauthorized resource access attempt', 'Insufficient clearance level', 'Privilege escalation attempt'],
+        ['Multiple failed access attempts', 'Brute force pattern detected', 'Rate limit exceeded'],
+        ['MFA bypass attempt', 'Authentication anomaly', 'Suspicious login pattern'],
+    ]
+    sample_devices = [
+        {'os_type': 'macOS', 'os_version': '10.15', 'encrypted': False, 'rooted': True},
+        {'os_type': 'Windows', 'os_version': '8.0', 'encrypted': False, 'rooted': False},
+        {'os_type': 'Android', 'os_version': '9.0', 'encrypted': True, 'rooted': True},
+        {'os_type': 'iOS', 'os_version': '12.0', 'encrypted': True, 'rooted': True, 'jailbroken': True},
+        {'os_type': 'Linux', 'os_version': '4.0', 'encrypted': False, 'rooted': False},
+        {'os_type': 'Windows', 'os_version': '11', 'encrypted': True, 'rooted': False},
+        {'os_type': 'macOS', 'os_version': '13.5.1', 'encrypted': True, 'rooted': False},
+    ]
+    
+    base_time = datetime.now() - timedelta(days=2)
+    seeded_anomalies = []
+    
+    for i, user in enumerate(sample_users):
+        # Create 2-3 anomalies per user (total ~15 anomalies)
+        num_anomalies = 2 if i % 2 == 0 else 3
+        for j in range(num_anomalies):
+            anomaly_time = base_time + timedelta(hours=i*3 + j*2, minutes=j*15)
+            risk_score = 45 + (i * 5) + (j * 3)  # Vary risk scores between 45-85
+            risk_score = min(risk_score, 90)  # Cap at 90
+            
+            seeded_anomalies.append({
+                'user': user,
+                'resource': sample_resources[i % len(sample_resources)],
+                'risk': risk_score,
+                'risk_factors': sample_risk_factors[(i * 2 + j) % len(sample_risk_factors)][:2 + (j % 2)],
+                'time': anomaly_time.isoformat(),
+                'location': sample_locations[i % len(sample_locations)],
+                'device': sample_devices[i % len(sample_devices)],
+                'vpn_connected': j % 2 == 0  # Mix of VPN and non-VPN
+            })
+    
+    return seeded_anomalies
+
+# Seed sample anomalies if none exist (or if only bob entries exist)
+if len(anomalies) == 0 or all(a.get('user') == 'bob@company.com' for a in anomalies):
+    seeded = seed_sample_anomalies()
+    anomalies.extend(seeded)
+    save_logs_to_file(ANOMALIES_LOG_FILE, anomalies)
+    print(f"[Policy Engine] Seeded {len(seeded)} sample anomalies with diverse users")
+
 # Active sessions with continuous auth tracking
 active_sessions = {}  # {user_email: {last_verified: datetime, risk_score: int, ...}}
 
@@ -933,6 +1008,48 @@ def anomaly_detect():
             'error': 'Internal server error during anomaly detection',
             'message': str(e)
         }), 500
+
+@app.route('/api/policy/anomalies', methods=['GET'])
+def get_all_anomalies():
+    """Get all anomalies - requires clearance level 2+."""
+    token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    if not token:
+        return jsonify({'error': 'Authentication required'}), 401
+    
+    try:
+        decoded = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
+        user_clearance = decoded.get('clearance', 0)
+        user_email = decoded.get('email')
+        
+        if user_clearance < 2:
+            return jsonify({'error': 'Insufficient clearance level. Requires clearance 2+'}), 403
+        
+        # Filter anomalies based on clearance
+        filtered_anomalies = anomalies
+        if user_clearance < 4:
+            # Clearance 2-3 can see their own and medium/high risk anomalies
+            filtered_anomalies = [a for a in anomalies if a.get('user') == user_email or a.get('risk', 0) >= 50]
+        elif user_clearance < 5:
+            # Clearance 4 can see all but not critical details
+            filtered_anomalies = anomalies
+        
+        # Sort by time (most recent first)
+        filtered_anomalies.sort(key=lambda x: x.get('time', ''), reverse=True)
+        
+        limit = int(request.args.get('limit', 50))
+        
+        return jsonify({
+            'anomalies': filtered_anomalies[:limit],
+            'total': len(anomalies),
+            'filtered': len(filtered_anomalies),
+            'user_clearance': user_clearance
+        })
+    except jwt.ExpiredSignatureError:
+        return jsonify({'error': 'Token expired'}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({'error': 'Invalid token'}), 401
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/policy/session-status', methods=['POST'])
 def session_status():
