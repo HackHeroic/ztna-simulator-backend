@@ -496,204 +496,233 @@ def verify_token_and_context(token, device=None, location=None):
 @app.route('/api/policy/evaluate', methods=['POST'])
 def evaluate_policy():
     """Evaluate access policy with comprehensive risk scoring."""
-    data = request.json
-    user_email = data.get('user', {}).get('email')
-    resource = data.get('resource')
-    device = data.get('device', {})
-    location = data.get('location', {})
-    context = data.get('context', {})
-    
-    # Check if user has active VPN connection to get real IP/location
-    vpn_connected = False
-    vpn_ip = None
-    real_client_ip = None
-    real_location = None
-    
     try:
-        # Check VPN gateway for active connection
-        vpn_resp = requests.get(
-            f'http://127.0.0.1:5001/api/vpn/check-connection?user_email={user_email}',
-            timeout=2
-        )
-        if vpn_resp.status_code == 200:
-            vpn_data = vpn_resp.json()
-            vpn_connected = vpn_data.get('connected', False)
-            if vpn_connected:
-                vpn_ip = vpn_data.get('vpn_ip')
-                # Get real IP and location from VPN connection (stored before VPN)
-                real_client_ip = vpn_data.get('real_client_ip')
-                real_location = vpn_data.get('location')
-    except:
-        pass  # VPN gateway not available, assume no VPN
-    
-    # IMPORTANT: Use real IP/location if VPN is connected, otherwise detect from request
-    if vpn_connected and real_location and real_client_ip:
-        # User is connected via VPN - use stored real location (from BEFORE VPN)
-        location = real_location.copy() if isinstance(real_location, dict) else {}
-        # Ensure we have country info
-        if not location.get('country') or location.get('country') in ['Unknown', 'Local']:
-            # Re-detect from real IP
-            detected_location = get_location_from_ip(real_client_ip)
-            location.update(detected_location)
-    else:
-        # No VPN or real location not available - detect from request
-        # If location not provided, try to get from IP
-        if not location or location.get('country') in ['Unknown', 'Local']:
-            client_ip = data.get('client_ip') or get_client_ip()  # Prefer frontend-provided IP
-            detected_location = get_location_from_ip(client_ip)
-            if location:
+        data = request.json or {}
+        user_email = data.get('user', {}).get('email')
+        resource = data.get('resource')
+        device = data.get('device', {})
+        location = data.get('location', {})
+        context = data.get('context', {})
+        
+        # Validate required fields
+        if not user_email:
+            return jsonify({'error': 'User email is required'}), 400
+        if not resource:
+            return jsonify({'error': 'Resource is required'}), 400
+        
+        # Check if user has active VPN connection to get real IP/location
+        vpn_connected = False
+        vpn_ip = None
+        real_client_ip = None
+        real_location = None
+        
+        try:
+            # Check VPN gateway for active connection
+            vpn_resp = requests.get(
+                f'http://127.0.0.1:5001/api/vpn/check-connection?user_email={user_email}',
+                timeout=2
+            )
+            if vpn_resp.status_code == 200:
+                vpn_data = vpn_resp.json()
+                vpn_connected = vpn_data.get('connected', False)
+                if vpn_connected:
+                    vpn_ip = vpn_data.get('vpn_ip')
+                    # Get real IP and location from VPN connection (stored before VPN)
+                    real_client_ip = vpn_data.get('real_client_ip')
+                    real_location = vpn_data.get('location')
+        except:
+            pass  # VPN gateway not available, assume no VPN
+        
+        # IMPORTANT: Use real IP/location if VPN is connected, otherwise detect from request
+        if vpn_connected and real_location and real_client_ip:
+            # User is connected via VPN - use stored real location (from BEFORE VPN)
+            location = real_location.copy() if isinstance(real_location, dict) else {}
+            # Ensure we have country info
+            if not location.get('country') or location.get('country') in ['Unknown', 'Local']:
+                # Re-detect from real IP
+                detected_location = get_location_from_ip(real_client_ip)
                 location.update(detected_location)
-            else:
-                location = detected_location
-            real_client_ip = client_ip
-    
-    # Calculate risk score using REAL location (not VPN IP location)
-    risk_score, risk_factors = calculate_risk_score(user_email, resource, device, location, context)
-    
-    # Get resource policy
-    resource_policy = RESOURCE_POLICIES.get(resource, {})
-    
-    # Enforce resource-specific rules
-    client_ip = real_client_ip or get_client_ip()
-    
-    # Check IP whitelist
-    ip_whitelist = resource_policy.get('ip_whitelist', [])
-    if ip_whitelist and client_ip not in ip_whitelist:
-        return jsonify({
-            'decision': 'DENY',
-            'risk_score': 100,
-            'reason': f'IP {client_ip} not in whitelist for {resource}',
-            'vpn_connected': vpn_connected
-        }), 403
-    
-    # Check IP blacklist
-    ip_blacklist = resource_policy.get('ip_blacklist', [])
-    if client_ip in ip_blacklist:
-        return jsonify({
-            'decision': 'DENY',
-            'risk_score': 100,
-            'reason': f'IP {client_ip} is blacklisted for {resource}',
-            'vpn_connected': vpn_connected
-        }), 403
-    
-    # Check rate limiting
-    rate_limit = resource_policy.get('rate_limit_per_minute', 0)
-    if rate_limit > 0:
-        # Count requests in last minute
-        now = datetime.now()
-        recent_requests = [
-            e for e in access_log
-            if e.get('user') == user_email and 
-            e.get('resource') == resource and
-            (now - datetime.fromisoformat(e.get('timestamp', now.isoformat()))).total_seconds() < 60
-        ]
-        if len(recent_requests) >= rate_limit:
+        else:
+            # No VPN or real location not available - detect from request
+            # If location not provided, try to get from IP
+            if not location or location.get('country') in ['Unknown', 'Local']:
+                client_ip = data.get('client_ip') or get_client_ip()  # Prefer frontend-provided IP
+                detected_location = get_location_from_ip(client_ip)
+                if location:
+                    location.update(detected_location)
+                else:
+                    location = detected_location
+                real_client_ip = client_ip
+        
+        # Calculate risk score using REAL location (not VPN IP location)
+        risk_score, risk_factors = calculate_risk_score(user_email, resource, device, location, context)
+        
+        # Get resource policy
+        resource_policy = RESOURCE_POLICIES.get(resource, {})
+        
+        # Enforce resource-specific rules
+        client_ip = real_client_ip or get_client_ip()
+        
+        # Check IP whitelist
+        ip_whitelist = resource_policy.get('ip_whitelist', [])
+        if ip_whitelist and client_ip not in ip_whitelist:
             return jsonify({
                 'decision': 'DENY',
-                'risk_score': 50,
-                'reason': f'Rate limit exceeded: {len(recent_requests)}/{rate_limit} requests per minute',
+                'risk_score': 100,
+                'reason': f'IP {client_ip} not in whitelist for {resource}',
                 'vpn_connected': vpn_connected
-            }), 429
-    
-    # Check max concurrent connections (for VPN gateway resource)
-    max_concurrent = resource_policy.get('max_concurrent_connections', 0)
-    if max_concurrent > 0 and resource == 'vpn-gateway':
-        # This is handled by VPN gateway itself, but we can add a check here too
-        pass
-    
-    # Check require_admin_role
-    if resource_policy.get('require_admin_role', False):
-        # Check if user has admin role (would need to verify with auth server)
-        # For now, we'll check clearance level
-        try:
-            # This would need integration with auth server
+            }), 403
+        
+        # Check IP blacklist
+        ip_blacklist = resource_policy.get('ip_blacklist', [])
+        if client_ip in ip_blacklist:
+            return jsonify({
+                'decision': 'DENY',
+                'risk_score': 100,
+                'reason': f'IP {client_ip} is blacklisted for {resource}',
+                'vpn_connected': vpn_connected
+            }), 403
+        
+        # Check rate limiting
+        rate_limit = resource_policy.get('rate_limit_per_minute', 0)
+        if rate_limit > 0:
+            # Count requests in last minute
+            now = datetime.now()
+            recent_requests = [
+                e for e in access_log
+                if e.get('user') == user_email and 
+                e.get('resource') == resource and
+                (now - datetime.fromisoformat(e.get('timestamp', now.isoformat()))).total_seconds() < 60
+            ]
+            if len(recent_requests) >= rate_limit:
+                return jsonify({
+                    'decision': 'DENY',
+                    'risk_score': 50,
+                    'reason': f'Rate limit exceeded: {len(recent_requests)}/{rate_limit} requests per minute',
+                    'vpn_connected': vpn_connected
+                }), 429
+        
+        # Check max concurrent connections (for VPN gateway resource)
+        max_concurrent = resource_policy.get('max_concurrent_connections', 0)
+        if max_concurrent > 0 and resource == 'vpn-gateway':
+            # This is handled by VPN gateway itself, but we can add a check here too
             pass
-        except:
-            pass
-    
-    # Use dynamic thresholds if available, otherwise defaults
-    if resource_policy.get('sensitivity') == 'critical':
-        required_risk_threshold = DYNAMIC_RISK_THRESHOLDS.get('critical_resource_threshold', 20)
-    elif resource_policy.get('sensitivity') == 'high':
-        required_risk_threshold = DYNAMIC_RISK_THRESHOLDS.get('high_resource_threshold', 30)
-    else:
-        required_risk_threshold = DYNAMIC_RISK_THRESHOLDS.get('medium_resource_threshold', 50)
-    
-    # Check global max risk
-    global_max = DYNAMIC_RISK_THRESHOLDS.get('global_max_risk', 75)
-    
-    # Determine decision
-    decision = 'ALLOW'
-    if risk_score > required_risk_threshold:
-        decision = 'DENY'
-        anomaly = {
+        
+        # Check require_admin_role
+        if resource_policy.get('require_admin_role', False):
+            # Check if user has admin role
+            try:
+                # Extract token from request if available
+                token = request.headers.get('Authorization', '').replace('Bearer ', '')
+                if token:
+                    is_admin, admin_user = check_admin_access(token)
+                    if not is_admin:
+                        return jsonify({
+                            'decision': 'DENY',
+                            'risk_score': 100,
+                            'reason': f'Admin role required for {resource}',
+                            'vpn_connected': vpn_connected
+                        }), 403
+            except Exception as e:
+                # If we can't verify admin status, deny access for security
+                return jsonify({
+                    'decision': 'DENY',
+                    'risk_score': 100,
+                    'reason': f'Unable to verify admin role for {resource}',
+                    'vpn_connected': vpn_connected
+                }), 403
+        
+        # Use dynamic thresholds if available, otherwise defaults
+        if resource_policy.get('sensitivity') == 'critical':
+            required_risk_threshold = DYNAMIC_RISK_THRESHOLDS.get('critical_resource_threshold', 20)
+        elif resource_policy.get('sensitivity') == 'high':
+            required_risk_threshold = DYNAMIC_RISK_THRESHOLDS.get('high_resource_threshold', 30)
+        else:
+            required_risk_threshold = DYNAMIC_RISK_THRESHOLDS.get('medium_resource_threshold', 50)
+        
+        # Check global max risk
+        global_max = DYNAMIC_RISK_THRESHOLDS.get('global_max_risk', 75)
+        
+        # Determine decision
+        decision = 'ALLOW'
+        if risk_score > required_risk_threshold:
+            decision = 'DENY'
+            anomaly = {
+                'user': user_email,
+                'resource': resource,
+                'risk': risk_score,
+                'risk_factors': risk_factors,
+                'time': datetime.now().isoformat(),
+                'location': location,
+                'device': device,
+                'vpn_connected': vpn_connected
+            }
+            anomalies.append(anomaly)
+        elif resource_policy.get('require_mfa', False) and not context.get('mfa_verified', False):
+            decision = 'MFA_REQUIRED'
+        
+        # Log access attempt with VPN status
+        access_entry = {
+            'timestamp': datetime.now().isoformat(),
             'user': user_email,
             'resource': resource,
-            'risk': risk_score,
-            'risk_factors': risk_factors,
-            'time': datetime.now().isoformat(),
-            'location': location,
-            'device': device,
-            'vpn_connected': vpn_connected
-        }
-        anomalies.append(anomaly)
-    elif resource_policy.get('require_mfa', False) and not context.get('mfa_verified', False):
-        decision = 'MFA_REQUIRED'
-    
-    # Log access attempt with VPN status
-    access_entry = {
-        'timestamp': datetime.now().isoformat(),
-        'user': user_email,
-        'resource': resource,
-        'decision': decision,
-        'risk_score': risk_score,
-        'risk_factors': risk_factors,
-        'vpn_connected': vpn_connected,
-        'vpn_ip': vpn_ip,
-        'real_ip': real_client_ip or location.get('ip') if isinstance(location, dict) else get_client_ip(),
-        'location': location.get('country', 'Unknown') if isinstance(location, dict) else 'Unknown',
-        'device': device,
-        'threshold': required_risk_threshold
-    }
-    access_log.append(access_entry)
-    
-    # Keep only last 10000 entries
-    if len(access_log) > 10000:
-        access_log[:] = access_log[-10000:]
-    
-    # Return response
-    if decision == 'DENY':
-        return jsonify({
-            'decision': 'DENY',
+            'decision': decision,
             'risk_score': risk_score,
-            'reason': 'High risk',
             'risk_factors': risk_factors,
-            'threshold': required_risk_threshold,
+            'vpn_connected': vpn_connected,
+            'vpn_ip': vpn_ip,
+            'real_ip': real_client_ip or location.get('ip') if isinstance(location, dict) else get_client_ip(),
+            'location': location.get('country', 'Unknown') if isinstance(location, dict) else 'Unknown',
+            'device': device,
+            'threshold': required_risk_threshold
+        }
+        access_log.append(access_entry)
+        
+        # Keep only last 10000 entries
+        if len(access_log) > 10000:
+            access_log[:] = access_log[-10000:]
+        
+        # Return response
+        if decision == 'DENY':
+            return jsonify({
+                'decision': 'DENY',
+                'risk_score': risk_score,
+                'reason': 'High risk',
+                'risk_factors': risk_factors,
+                'threshold': required_risk_threshold,
+                'vpn_connected': vpn_connected,
+                'location_used': location.get('country', 'Unknown') if isinstance(location, dict) else 'Unknown'
+            }), 403
+        
+        if decision == 'MFA_REQUIRED':
+            return jsonify({
+                'decision': 'MFA_REQUIRED',
+                'risk_score': risk_score,
+                'reason': 'Multi-factor authentication required',
+                'vpn_connected': vpn_connected
+            }), 401
+        
+        # Access granted
+        return jsonify({
+            'decision': 'ALLOW',
+            'risk_score': risk_score,
+            'context': {
+                'device': device,
+                'location': location,
+                'session_timeout_minutes': resource_policy.get('session_timeout_minutes', SESSION_POLICIES['default_session_timeout_minutes'])
+            },
+            'risk_factors': risk_factors,
             'vpn_connected': vpn_connected,
             'location_used': location.get('country', 'Unknown') if isinstance(location, dict) else 'Unknown'
-        }), 403
-    
-    if decision == 'MFA_REQUIRED':
+        })
+    except Exception as e:
+        print(f"Error in evaluate_policy: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
-            'decision': 'MFA_REQUIRED',
-            'risk_score': risk_score,
-            'reason': 'Multi-factor authentication required',
-            'vpn_connected': vpn_connected
-        }), 401
-    
-    # Access granted
-    return jsonify({
-        'decision': 'ALLOW',
-        'risk_score': risk_score,
-        'context': {
-            'device': device,
-            'location': location,
-            'session_timeout_minutes': resource_policy.get('session_timeout_minutes', SESSION_POLICIES['default_session_timeout_minutes'])
-        },
-        'risk_factors': risk_factors,
-        'vpn_connected': vpn_connected,
-        'location_used': location.get('country', 'Unknown') if isinstance(location, dict) else 'Unknown'
-    })
+            'error': 'Internal server error during policy evaluation',
+            'message': str(e)
+        }), 500
 
 @app.route('/api/policy/continuous-auth', methods=['POST'])
 def continuous_auth():
@@ -702,165 +731,223 @@ def continuous_auth():
     Prefers client-provided location/IP (from VPN gateway) over detecting from request,
     since during VPN connection, request IP would be VPN IP (10.8.0.x) not real client IP.
     """
-    request_timestamp = datetime.now().isoformat()
-    token = request.headers.get('Authorization', '').replace('Bearer ', '')
-    
-    if not token:
-        return jsonify({'status': 'failed', 'reason': 'No token provided'}), 401
-    
-    # Get device and location from request
-    data = request.json or {}
-    device = data.get('device', {})
-    location = data.get('location', {})
-    client_ip = data.get('client_ip')  # Client-provided IP (from VPN gateway)
-    
-    # Log the request
-    print(f"[{request_timestamp}] Policy Engine: Continuous auth REQUEST")
-    print(f"  - IP: {client_ip or get_client_ip()}")
-    print(f"  - Location: {location.get('country', 'Unknown')}")
-    
-    # Priority: Use client-provided location/IP (most reliable during VPN)
-    # Only detect from request if not provided (for non-VPN requests)
-    if not location or location.get('country') in ['Unknown', 'Local']:
-        if client_ip:
-            # Use client-provided IP to detect location
-            detected_location = get_location_from_ip(client_ip)
-            if location:
-                location.update(detected_location)
-            else:
-                location = detected_location
-        else:
-            # Fallback: detect from request (only for non-VPN scenarios)
-            request_ip = get_client_ip()
-            detected_location = get_location_from_ip(request_ip)
-            if location:
-                location.update(detected_location)
-            else:
-                location = detected_location
-    
-    # Verify token and context
-    result, decoded = verify_token_and_context(token, device, location)
-    
-    # Log the response
-    response_timestamp = datetime.now().isoformat()
-    log_entry = {
-        'timestamp': request_timestamp,
-        'response_time': response_timestamp,
-        'user': decoded.get('email') if decoded else 'unknown',
-        'client_ip': client_ip or get_client_ip(),
-        'location': location.get('country', 'Unknown'),
-        'status': result.get('status'),
-        'risk_score': result.get('risk_score', 0),
-        'success': result.get('status') == 'verified'
-    }
-    continuous_auth_requests.append(log_entry)
-    
-    # Keep only last 1000 entries
-    if len(continuous_auth_requests) > 1000:
-        continuous_auth_requests[:] = continuous_auth_requests[-1000:]
-    
-    if result['status'] == 'verified':
-        user_email = decoded.get('email') or decoded.get('user')
+    try:
+        request_timestamp = datetime.now().isoformat()
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
         
-        print(f"[{response_timestamp}] Policy Engine: Continuous auth VERIFIED")
-        print(f"  - User: {user_email}")
-        print(f"  - Risk Score: {result.get('risk_score', 0)}")
+        if not token:
+            return jsonify({'status': 'failed', 'reason': 'No token provided'}), 401
         
-        # Update active session
-        active_sessions[user_email] = {
-            'last_verified': datetime.now().isoformat(),
+        # Get device and location from request
+        data = request.json or {}
+        device = data.get('device', {})
+        location = data.get('location', {})
+        client_ip = data.get('client_ip')  # Client-provided IP (from VPN gateway)
+        
+        # Log the request
+        print(f"[{request_timestamp}] Policy Engine: Continuous auth REQUEST")
+        print(f"  - IP: {client_ip or get_client_ip()}")
+        print(f"  - Location: {location.get('country', 'Unknown')}")
+        
+        # Priority: Use client-provided location/IP (most reliable during VPN)
+        # Only detect from request if not provided (for non-VPN requests)
+        if not location or location.get('country') in ['Unknown', 'Local']:
+            if client_ip:
+                # Use client-provided IP to detect location
+                detected_location = get_location_from_ip(client_ip)
+                if location:
+                    location.update(detected_location)
+                else:
+                    location = detected_location
+            else:
+                # Fallback: detect from request (only for non-VPN scenarios)
+                request_ip = get_client_ip()
+                detected_location = get_location_from_ip(request_ip)
+                if location:
+                    location.update(detected_location)
+                else:
+                    location = detected_location
+        
+        # Verify token and context
+        result, decoded = verify_token_and_context(token, device, location)
+        
+        # Log the response
+        response_timestamp = datetime.now().isoformat()
+        log_entry = {
+            'timestamp': request_timestamp,
+            'response_time': response_timestamp,
+            'user': decoded.get('email') if decoded else 'unknown',
+            'client_ip': client_ip or get_client_ip(),
+            'location': location.get('country', 'Unknown'),
+            'status': result.get('status'),
             'risk_score': result.get('risk_score', 0),
-            'location': location,
-            'device': device
+            'success': result.get('status') == 'verified'
         }
+        continuous_auth_requests.append(log_entry)
         
-        # Check if risk is too high (use dynamic threshold)
-        max_risk = DYNAMIC_RISK_THRESHOLDS.get('continuous_auth_max_risk', 75)
-        if result.get('risk_score', 0) > max_risk:
-            print(f"[{response_timestamp}] Policy Engine: HIGH RISK DETECTED - {result.get('risk_score', 0)}")
-            return jsonify({
-                'status': 'failed',
-                'reason': 'High risk detected',
-                'risk_score': result['risk_score'],
-                'threshold': max_risk
-            }), 401
+        # Keep only last 1000 entries
+        if len(continuous_auth_requests) > 1000:
+            continuous_auth_requests[:] = continuous_auth_requests[-1000:]
         
-        return jsonify(result)
-    else:
-        print(f"[{response_timestamp}] Policy Engine: Continuous auth FAILED - {result.get('reason')}")
-        return jsonify(result), 401
+        if result['status'] == 'verified':
+            user_email = decoded.get('email') or decoded.get('user')
+            
+            print(f"[{response_timestamp}] Policy Engine: Continuous auth VERIFIED")
+            print(f"  - User: {user_email}")
+            print(f"  - Risk Score: {result.get('risk_score', 0)}")
+            
+            # Update active session
+            active_sessions[user_email] = {
+                'last_verified': datetime.now().isoformat(),
+                'risk_score': result.get('risk_score', 0),
+                'location': location,
+                'device': device
+            }
+            
+            # Check if risk is too high (use dynamic threshold)
+            max_risk = DYNAMIC_RISK_THRESHOLDS.get('continuous_auth_max_risk', 75)
+            if result.get('risk_score', 0) > max_risk:
+                print(f"[{response_timestamp}] Policy Engine: HIGH RISK DETECTED - {result.get('risk_score', 0)}")
+                return jsonify({
+                    'status': 'failed',
+                    'reason': 'High risk detected',
+                    'risk_score': result['risk_score'],
+                    'threshold': max_risk
+                }), 401
+            
+            return jsonify(result)
+        else:
+            print(f"[{response_timestamp}] Policy Engine: Continuous auth FAILED - {result.get('reason')}")
+            return jsonify(result), 401
+    except Exception as e:
+        print(f"Error in continuous_auth: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'status': 'failed',
+            'reason': 'Internal server error during continuous authentication',
+            'error': str(e)
+        }), 500
 
 @app.route('/api/policy/anomaly-detect', methods=['POST'])
 def anomaly_detect():
     """Detect and return anomalies for a user."""
-    data = request.json
-    user_email = data.get('email')
-    
-    if not user_email:
-        return jsonify({'error': 'Email required'}), 400
-    
-    # Get user anomalies
-    user_anoms = [a for a in anomalies if a.get('user') == user_email]
-    
-    # Calculate anomaly score
-    anomaly_count = len(user_anoms)
-    recent_anoms = [a for a in user_anoms 
-                   if (datetime.now() - datetime.fromisoformat(a['time'])).total_seconds() < 3600]
-    
-    return jsonify({
-        'anomalies': anomaly_count,
-        'recent_anomalies': len(recent_anoms),
-        'details': user_anoms[-10:],  # Last 10
-        'risk_level': 'high' if anomaly_count > 3 else 'medium' if anomaly_count > 1 else 'low'
-    })
+    try:
+        data = request.json or {}
+        user_email = data.get('email')
+        
+        if not user_email:
+            return jsonify({'error': 'Email required'}), 400
+        
+        # Get user anomalies
+        user_anoms = [a for a in anomalies if a.get('user') == user_email]
+        
+        # Calculate anomaly score
+        anomaly_count = len(user_anoms)
+        recent_anoms = []
+        for a in user_anoms:
+            try:
+                time_str = a.get('time')
+                if time_str:
+                    if isinstance(time_str, str):
+                        time_obj = datetime.fromisoformat(time_str)
+                    else:
+                        time_obj = time_str
+                    if (datetime.now() - time_obj).total_seconds() < 3600:
+                        recent_anoms.append(a)
+            except Exception as e:
+                print(f"Error parsing anomaly time: {e}")
+                continue
+        
+        return jsonify({
+            'anomalies': anomaly_count,
+            'recent_anomalies': len(recent_anoms),
+            'details': user_anoms[-10:],  # Last 10
+            'risk_level': 'high' if anomaly_count > 3 else 'medium' if anomaly_count > 1 else 'low'
+        })
+    except Exception as e:
+        print(f"Error in anomaly_detect: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'error': 'Internal server error during anomaly detection',
+            'message': str(e)
+        }), 500
 
 @app.route('/api/policy/session-status', methods=['POST'])
 def session_status():
     """Get continuous authentication status for a session."""
-    token = request.headers.get('Authorization', '').replace('Bearer ', '')
-    if not token:
-        return jsonify({'error': 'No token provided'}), 401
-    
-    result, decoded = verify_token_and_context(token)
-    if result['status'] != 'verified':
-        return jsonify(result), 401
-    
-    user_email = decoded.get('email') or decoded.get('user')
-    session = active_sessions.get(user_email, {})
-    
-    if session:
-        last_verified = datetime.fromisoformat(session.get('last_verified', datetime.now().isoformat()))
-        minutes_since_verify = (datetime.now() - last_verified).total_seconds() / 60
+    try:
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        if not token:
+            return jsonify({'error': 'No token provided'}), 401
         
+        result, decoded = verify_token_and_context(token)
+        if result['status'] != 'verified':
+            return jsonify(result), 401
+        
+        user_email = decoded.get('email') or decoded.get('user')
+        session = active_sessions.get(user_email, {})
+        
+        if session:
+            try:
+                last_verified_str = session.get('last_verified', datetime.now().isoformat())
+                if isinstance(last_verified_str, str):
+                    last_verified = datetime.fromisoformat(last_verified_str)
+                else:
+                    last_verified = last_verified_str
+                minutes_since_verify = (datetime.now() - last_verified).total_seconds() / 60
+            except Exception as e:
+                print(f"Error parsing last_verified: {e}")
+                minutes_since_verify = 0
+            
+            return jsonify({
+                'status': 'active',
+                'last_verified': session.get('last_verified'),
+                'minutes_since_verify': round(minutes_since_verify, 2),
+                'risk_score': session.get('risk_score', 0),
+                'requires_reverify': minutes_since_verify > SESSION_POLICIES['continuous_auth_interval_minutes']
+            })
+        else:
+            return jsonify({
+                'status': 'no_session',
+                'message': 'No active session found'
+            })
+    except Exception as e:
+        print(f"Error in session_status: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
-            'status': 'active',
-            'last_verified': session.get('last_verified'),
-            'minutes_since_verify': round(minutes_since_verify, 2),
-            'risk_score': session.get('risk_score', 0),
-            'requires_reverify': minutes_since_verify > SESSION_POLICIES['continuous_auth_interval_minutes']
-        })
-    else:
-        return jsonify({
-            'status': 'no_session',
-            'message': 'No active session found'
-        })
+            'error': 'Internal server error during session status check',
+            'message': str(e)
+        }), 500
 
 @app.route('/api/policy/location-detect', methods=['GET', 'POST'])
 def location_detect():
     """Detect location from client IP."""
-    if request.method == 'POST':
-        ip = request.json.get('ip') if request.json else None
-    else:
-        ip = request.args.get('ip')
-    
-    if not ip:
-        ip = get_client_ip()
-    
-    location = get_location_from_ip(ip)
-    return jsonify({
-        'ip': ip,
-        'location': location
-    })
+    try:
+        if request.method == 'POST':
+            ip = request.json.get('ip') if request.json else None
+        else:
+            ip = request.args.get('ip')
+        
+        if not ip:
+            ip = get_client_ip()
+        
+        location = get_location_from_ip(ip)
+        return jsonify({
+            'ip': ip,
+            'location': location
+        })
+    except Exception as e:
+        print(f"Error in location_detect: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'error': 'Internal server error during location detection',
+            'message': str(e),
+            'ip': ip if 'ip' in locals() else None
+        }), 500
 
 @app.route('/api/policy/policies', methods=['GET'])
 def get_policies():
@@ -880,68 +967,77 @@ def test_risk_scenario():
     Test endpoint to simulate different risk scenarios for frontend visualization.
     Allows setting specific risk scores and factors for testing.
     """
-    data = request.json or {}
-    
-    # Allow overriding risk score for testing
-    test_risk_score = data.get('test_risk_score')
-    test_risk_factors = data.get('test_risk_factors', [])
-    test_decision = data.get('test_decision')  # 'ALLOW', 'DENY', 'MFA_REQUIRED'
-    
-    user_email = data.get('user', {}).get('email', 'test@company.com')
-    resource = data.get('resource', 'database-prod')
-    device = data.get('device', {})
-    location = data.get('location', {})
-    context = data.get('context', {})
-    
-    # If test mode, use provided values
-    if test_risk_score is not None:
-        risk_score = test_risk_score
-        risk_factors = test_risk_factors if test_risk_factors else [f'Test mode: Risk score {risk_score}']
-    else:
-        # Normal calculation
-        risk_score, risk_factors = calculate_risk_score(user_email, resource, device, location, context)
-    
-    # Get resource policy
-    resource_policy = RESOURCE_POLICIES.get(resource, {})
-    
-    # Use dynamic thresholds
-    if resource_policy.get('sensitivity') == 'critical':
-        required_risk_threshold = DYNAMIC_RISK_THRESHOLDS.get('critical_resource_threshold', 20)
-    elif resource_policy.get('sensitivity') == 'high':
-        required_risk_threshold = DYNAMIC_RISK_THRESHOLDS.get('high_resource_threshold', 30)
-    else:
-        required_risk_threshold = DYNAMIC_RISK_THRESHOLDS.get('medium_resource_threshold', 50)
-    
-    # Override decision if test mode
-    if test_decision:
-        decision = test_decision
-    elif risk_score > required_risk_threshold:
-        decision = 'DENY'
-    elif resource_policy.get('require_mfa', False) and not context.get('mfa_verified', False):
-        decision = 'MFA_REQUIRED'
-    else:
-        decision = 'ALLOW'
-    
-    response_data = {
-        'decision': decision,
-        'risk_score': risk_score,
-        'risk_factors': risk_factors,
-        'threshold': required_risk_threshold,
-        'test_mode': test_risk_score is not None,
-        'context': {
-            'device': device,
-            'location': location,
-            'session_timeout_minutes': resource_policy.get('session_timeout_minutes', 30)
+    try:
+        data = request.json or {}
+        
+        # Allow overriding risk score for testing
+        test_risk_score = data.get('test_risk_score')
+        test_risk_factors = data.get('test_risk_factors', [])
+        test_decision = data.get('test_decision')  # 'ALLOW', 'DENY', 'MFA_REQUIRED'
+        
+        user_email = data.get('user', {}).get('email', 'test@company.com')
+        resource = data.get('resource', 'database-prod')
+        device = data.get('device', {})
+        location = data.get('location', {})
+        context = data.get('context', {})
+        
+        # If test mode, use provided values
+        if test_risk_score is not None:
+            risk_score = test_risk_score
+            risk_factors = test_risk_factors if test_risk_factors else [f'Test mode: Risk score {risk_score}']
+        else:
+            # Normal calculation
+            risk_score, risk_factors = calculate_risk_score(user_email, resource, device, location, context)
+        
+        # Get resource policy
+        resource_policy = RESOURCE_POLICIES.get(resource, {})
+        
+        # Use dynamic thresholds
+        if resource_policy.get('sensitivity') == 'critical':
+            required_risk_threshold = DYNAMIC_RISK_THRESHOLDS.get('critical_resource_threshold', 20)
+        elif resource_policy.get('sensitivity') == 'high':
+            required_risk_threshold = DYNAMIC_RISK_THRESHOLDS.get('high_resource_threshold', 30)
+        else:
+            required_risk_threshold = DYNAMIC_RISK_THRESHOLDS.get('medium_resource_threshold', 50)
+        
+        # Override decision if test mode
+        if test_decision:
+            decision = test_decision
+        elif risk_score > required_risk_threshold:
+            decision = 'DENY'
+        elif resource_policy.get('require_mfa', False) and not context.get('mfa_verified', False):
+            decision = 'MFA_REQUIRED'
+        else:
+            decision = 'ALLOW'
+        
+        response_data = {
+            'decision': decision,
+            'risk_score': risk_score,
+            'risk_factors': risk_factors,
+            'threshold': required_risk_threshold,
+            'test_mode': test_risk_score is not None,
+            'context': {
+                'device': device,
+                'location': location,
+                'session_timeout_minutes': resource_policy.get('session_timeout_minutes', 30)
+            }
         }
-    }
-    
-    # Return appropriate status code
-    if decision == 'DENY':
-        return jsonify(response_data), 403
-    elif decision == 'MFA_REQUIRED':
-        return jsonify(response_data), 401
-    else:
-        return jsonify(response_data)
+        
+        # Return appropriate status code
+        if decision == 'DENY':
+            return jsonify(response_data), 403
+        elif decision == 'MFA_REQUIRED':
+            return jsonify(response_data), 401
+        else:
+            return jsonify(response_data)
+    except Exception as e:
+        print(f"Error in test_risk_scenario: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'error': 'Internal server error during risk scenario test',
+            'message': str(e)
+        }), 500
 
 @app.route('/api/policy/test-scenarios', methods=['GET'])
 def get_test_scenarios():
