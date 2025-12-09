@@ -1,0 +1,299 @@
+[
+  {
+    "user": "bob@company.com",
+    "resource": "database-prod",
+    "risk": 50,
+    "risk_factors": [
+      "Unusual location: Local",
+      "Device not encrypted",
+      "Velocity anomaly: rapid location change"
+    ],
+    "time": "2025-12-09T16:23:57.748758",
+    "location": {
+      "country": "Local",
+      "country_name": "Local Network",
+      "city": "Localhost",
+      "latitude": null,
+      "longitude": null,
+      "isp": "Local",
+      "source": "private_ip",
+      "note": "Private/localhost IP - no geographic location available"
+    },
+    "device": {},
+    "vpn_connected": false
+  },
+  {
+    "user": "bob@company.com",
+    "resource": "admin-panel",
+    "risk": 35,
+    "risk_factors": [
+      "Unusual location: Local",
+      "Device not encrypted"
+    ],
+    "time": "2025-12-09T16:23:57.751761",
+    "location": {
+      "country": "Local",
+      "country_name": "Local Network",
+      "city": "Localhost",
+      "latitude": null,
+      "longitude": null,
+      "isp": "Local",
+      "source": "private_ip",
+      "note": "Private/localhost IP - no geographic location available"
+    },
+    "device": {},
+    "vpn_connected": false
+  },
+  {
+    "user": "bob@company.com",
+    "resource": "admin-panel",
+    "risk": 35,
+    "risk_factors": [
+      "Unusual location: Local",
+      "Device not encrypted"
+    ],
+    "time": "2025-12-09T16:23:58.023188",
+    "location": {
+      "country": "Local",
+      "country_name": "Local Network",
+      "city": "Localhost",
+      "latitude": null,
+      "longitude": null,
+      "isp": "Local",
+      "source": "private_ip",
+      "note": "Private/localhost IP - no geographic location available"
+    },
+    "device": {},
+    "vpn_connected": false
+  },
+  {
+    "user": "bob@company.com",
+    "resource": "database-prod",
+    "risk": 35,
+    "risk_factors": [
+      "Unusual location: Unknown",
+      "Velocity anomaly: rapid location change"
+    ],
+    "time": "2025-12-09T16:26:13.680594",
+    "location": {
+      "city": "Unknown",
+      "country": "Unknown",
+      "country_name": "Unknown",
+      "isp": "Unknown",
+      "latitude": null,
+      "longitude": null,
+      "note": "Geolocation lookup failed",
+      "source": "fallback"
+    },
+    "device": {
+      "os_type": "macOS",
+      "os_version": "10.15.7",
+      "encrypted": true,
+      "rooted": false,
+      "mdm_enrolled": false,
+      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+      "screen": {
+        "width": 1440,
+        "height": 900
+      },
+      "timezone": "Asia/Calcutta",
+      "language": "en-GB",
+      "platform": "MacIntel"
+    },
+    "vpn_connected": false
+  },
+  {
+    "user": "bob@company.com",
+    "resource": "database-prod",
+    "risk": 50,
+    "risk_factors": [
+      "Unusual location: Local",
+      "Device not encrypted",
+      "Velocity anomaly: rapid location change"
+    ],
+    "time": "2025-12-09T16:26:58.645202",
+    "location": {
+      "country": "Local",
+      "country_name": "Local Network",
+      "city": "Localhost",
+      "latitude": null,
+      "longitude": null,
+      "isp": "Local",
+      "source": "private_ip",
+      "note": "Private/localhost IP - no geographic location available"
+    },
+    "device": {},
+    "vpn_connected": false
+  },
+  {
+    "user": "bob@company.com",
+    "resource": "admin-panel",
+    "risk": 35,
+    "risk_factors": [
+      "Unusual location: Local",
+      "Device not encrypted"
+    ],
+    "time": "2025-12-09T16:26:58.647878",
+    "location": {
+      "country": "Local",
+      "country_name": "Local Network",
+      "city": "Localhost",
+      "latitude": null,
+      "longitude": null,
+      "isp": "Local",
+      "source": "private_ip",
+      "note": "Private/localhost IP - no geographic location available"
+    },
+    "device": {},
+    "vpn_connected": false
+  },
+  {
+    "user": "bob@company.com",
+    "resource": "database-prod",
+    "risk": 35,
+    "risk_factors": [
+      "Unusual location: Unknown",
+      "Velocity anomaly: rapid location change"
+    ],
+    "time": "2025-12-09T16:27:03.578712",
+    "location": {
+      "city": "Unknown",
+      "country": "Unknown",
+      "country_name": "Unknown",
+      "isp": "Unknown",
+      "latitude": null,
+      "longitude": null,
+      "note": "Geolocation lookup failed",
+      "source": "fallback"
+    },
+    "device": {
+      "os_type": "macOS",
+      "os_version": "10.15.7",
+      "encrypted": true,
+      "rooted": false,
+      "mdm_enrolled": false,
+      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+      "screen": {
+        "width": 1440,
+        "height": 900
+      },
+      "timezone": "Asia/Calcutta",
+      "language": "en-GB",
+      "platform": "MacIntel"
+    },
+    "vpn_connected": false
+  },
+  {
+    "user": "bob@company.com",
+    "resource": "database-prod",
+    "risk": 50,
+    "risk_factors": [
+      "Unusual location: Local",
+      "Device not encrypted",
+      "Velocity anomaly: rapid location change"
+    ],
+    "time": "2025-12-09T16:30:37.906461",
+    "location": {
+      "country": "Local",
+      "country_name": "Local Network",
+      "city": "Localhost",
+      "latitude": null,
+      "longitude": null,
+      "isp": "Local",
+      "source": "private_ip",
+      "note": "Private/localhost IP - no geographic location available"
+    },
+    "device": {},
+    "vpn_connected": false
+  },
+  {
+    "user": "bob@company.com",
+    "resource": "admin-panel",
+    "risk": 35,
+    "risk_factors": [
+      "Unusual location: Local",
+      "Device not encrypted"
+    ],
+    "time": "2025-12-09T16:30:37.907614",
+    "location": {
+      "country": "Local",
+      "country_name": "Local Network",
+      "city": "Localhost",
+      "latitude": null,
+      "longitude": null,
+      "isp": "Local",
+      "source": "private_ip",
+      "note": "Private/localhost IP - no geographic location available"
+    },
+    "device": {},
+    "vpn_connected": false
+  },
+  {
+    "user": "bob@company.com",
+    "resource": "admin-panel",
+    "risk": 35,
+    "risk_factors": [
+      "Unusual location: Local",
+      "Device not encrypted"
+    ],
+    "time": "2025-12-09T16:31:37.791111",
+    "location": {
+      "country": "Local",
+      "country_name": "Local Network",
+      "city": "Localhost",
+      "latitude": null,
+      "longitude": null,
+      "isp": "Local",
+      "source": "private_ip",
+      "note": "Private/localhost IP - no geographic location available"
+    },
+    "device": {},
+    "vpn_connected": false
+  },
+  {
+    "user": "alice@company.com",
+    "resource": "database-prod",
+    "risk": 50,
+    "risk_factors": [
+      "Unusual location: Local",
+      "Device not encrypted",
+      "Velocity anomaly: rapid location change"
+    ],
+    "time": "2025-12-09T16:54:21.662716",
+    "location": {
+      "country": "Local",
+      "country_name": "Local Network",
+      "city": "Localhost",
+      "latitude": null,
+      "longitude": null,
+      "isp": "Local",
+      "source": "private_ip",
+      "note": "Private/localhost IP - no geographic location available"
+    },
+    "device": {},
+    "vpn_connected": false
+  },
+  {
+    "user": "alice@company.com",
+    "resource": "database-prod",
+    "risk": 50,
+    "risk_factors": [
+      "Unusual location: Local",
+      "Device not encrypted",
+      "Velocity anomaly: rapid location change"
+    ],
+    "time": "2025-12-09T16:56:21.702818",
+    "location": {
+      "country": "Local",
+      "country_name": "Local Network",
+      "city": "Localhost",
+      "latitude": null,
+      "longitude": null,
+      "isp": "Local",
+      "source": "private_ip",
+      "note": "Private/localhost IP - no geographic location available"
+    },
+    "device": {},
+    "vpn_connected": false
+  }
+]

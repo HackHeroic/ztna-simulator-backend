@@ -8,11 +8,56 @@ import jwt
 from datetime import datetime, timedelta
 import threading
 import time
+import json
+from pathlib import Path
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 
 SECRET_KEY = os.environ.get('JWT_SECRET', 'your-super-secret-key')
+
+# ======================================================
+# LOG PERSISTENCE
+# ======================================================
+LOG_DIR = Path(__file__).parent / 'logs'
+LOG_DIR.mkdir(exist_ok=True)
+
+ACCESS_LOG_FILE = LOG_DIR / 'access_log.json'
+ANOMALIES_LOG_FILE = LOG_DIR / 'anomalies_log.json'
+CONTINUOUS_AUTH_LOG_FILE = LOG_DIR / 'continuous_auth_log.json'
+
+def load_logs_from_file(file_path, default=[]):
+    """Load logs from JSON file."""
+    try:
+        if file_path.exists():
+            with open(file_path, 'r') as f:
+                data = json.load(f)
+                # Convert timestamp strings back to datetime-aware format
+                return data if isinstance(data, list) else default
+    except Exception as e:
+        print(f"Error loading logs from {file_path}: {e}")
+    return default
+
+def save_logs_to_file(file_path, logs, max_entries=10000):
+    """Save logs to JSON file, keeping only recent entries."""
+    try:
+        # Keep only last max_entries
+        logs_to_save = logs[-max_entries:] if len(logs) > max_entries else logs
+        with open(file_path, 'w') as f:
+            json.dump(logs_to_save, f, indent=2, default=str)
+    except Exception as e:
+        print(f"Error saving logs to {file_path}: {e}")
+
+def auto_save_logs():
+    """Background thread to periodically save logs."""
+    while True:
+        time.sleep(30)  # Save every 30 seconds
+        try:
+            save_logs_to_file(ACCESS_LOG_FILE, access_log)
+            save_logs_to_file(ANOMALIES_LOG_FILE, anomalies)
+            save_logs_to_file(CONTINUOUS_AUTH_LOG_FILE, continuous_auth_requests)
+        except Exception as e:
+            print(f"Error in auto_save_logs: {e}")
 
 # ======================================================
 # POLICY CONFIGURATIONS
@@ -150,17 +195,17 @@ SESSION_POLICIES = {
 user_baselines = {}  # Track normal user behavior
 user_access_history = {}  # Track access patterns
 
-# Anomaly log
-anomalies = []
+# Anomaly log (loaded from file on startup)
+anomalies = load_logs_from_file(ANOMALIES_LOG_FILE, [])
 
 # Active sessions with continuous auth tracking
 active_sessions = {}  # {user_email: {last_verified: datetime, risk_score: int, ...}}
 
-# Continuous auth request tracking
-continuous_auth_requests = []  # Track all continuous auth requests
+# Continuous auth request tracking (loaded from file on startup)
+continuous_auth_requests = load_logs_from_file(CONTINUOUS_AUTH_LOG_FILE, [])
 
-# Access tracking with VPN status
-access_log = []  # Track all access attempts with VPN status
+# Access tracking with VPN status (loaded from file on startup)
+access_log = load_logs_from_file(ACCESS_LOG_FILE, [])
 
 # Admin/Master users (can modify policies and risk factors)
 ADMIN_USERS = ['bob@company.com']  # Users with admin role or clearance 5
@@ -658,6 +703,8 @@ def evaluate_policy():
                 'vpn_connected': vpn_connected
             }
             anomalies.append(anomaly)
+            # Save anomalies immediately
+            save_logs_to_file(ANOMALIES_LOG_FILE, anomalies)
         elif resource_policy.get('require_mfa', False) and not context.get('mfa_verified', False):
             decision = 'MFA_REQUIRED'
         
@@ -678,9 +725,13 @@ def evaluate_policy():
         }
         access_log.append(access_entry)
         
-        # Keep only last 10000 entries
+        # Keep only last 10000 entries (auto-save handles persistence)
         if len(access_log) > 10000:
             access_log[:] = access_log[-10000:]
+        
+        # Save to file immediately for important events
+        if decision == 'DENY' or risk_score > 50:
+            save_logs_to_file(ACCESS_LOG_FILE, access_log)
         
         # Return response
         if decision == 'DENY':
@@ -785,9 +836,13 @@ def continuous_auth():
         }
         continuous_auth_requests.append(log_entry)
         
-        # Keep only last 1000 entries
+        # Keep only last 1000 entries (auto-save handles persistence)
         if len(continuous_auth_requests) > 1000:
             continuous_auth_requests[:] = continuous_auth_requests[-1000:]
+        
+        # Save periodically (every 10th request)
+        if len(continuous_auth_requests) % 10 == 0:
+            save_logs_to_file(CONTINUOUS_AUTH_LOG_FILE, continuous_auth_requests)
         
         if result['status'] == 'verified':
             user_email = decoded.get('email') or decoded.get('user')
@@ -1621,4 +1676,9 @@ def health():
     })
 
 if __name__ == '__main__':
+    # Start background thread for auto-saving logs
+    save_thread = threading.Thread(target=auto_save_logs, daemon=True)
+    save_thread.start()
+    print(f"[Policy Engine] Log persistence enabled. Logs saved to: {LOG_DIR}")
+    print(f"[Policy Engine] Loaded {len(access_log)} access logs, {len(anomalies)} anomalies, {len(continuous_auth_requests)} continuous auth requests")
     app.run(host='0.0.0.0', port=5002, debug=True)

@@ -36,6 +36,30 @@ USERS = {
         "clearance": 2,
         "department": "Finance",
     },
+    "diana@company.com": {
+        "password": "security123",
+        "role": "Security",
+        "clearance": 4,
+        "department": "Security",
+    },
+    "eve@company.com": {
+        "password": "audit123",
+        "role": "Auditor",
+        "clearance": 3,
+        "department": "Compliance",
+    },
+    "frank@company.com": {
+        "password": "manager123",
+        "role": "Manager",
+        "clearance": 2,
+        "department": "Operations",
+    },
+    "grace@company.com": {
+        "password": "intern123",
+        "role": "Intern",
+        "clearance": 1,
+        "department": "Engineering",
+    },
 }
 
 
@@ -44,14 +68,14 @@ active_sessions = {}
 
 ACCESS_POLICIES = {
     "database-prod": {
-        "required_role": ["Admin", "Developer"],
+        "required_role": ["Admin", "Developer", "Security"],
         "required_clearance": 3,
-        "allowed_departments": ["Engineering", "IT"],
+        "allowed_departments": ["Engineering", "IT", "Security"],
     },
     "file-server": {
-        "required_role": ["Admin", "Developer", "Analyst"],
+        "required_role": ["Admin", "Developer", "Analyst", "Manager", "Security"],
         "required_clearance": 2,
-        "allowed_departments": ["Engineering", "IT", "Finance"],
+        "allowed_departments": ["Engineering", "IT", "Finance", "Operations", "Security"],
     },
     "admin-panel": {
         "required_role": ["Admin"],
@@ -59,9 +83,9 @@ ACCESS_POLICIES = {
         "allowed_departments": ["IT"],
     },
     "vpn-gateway": {
-        "required_role": ["Admin", "Developer", "Analyst"],
+        "required_role": ["Admin", "Developer", "Analyst", "Manager", "Security", "Intern"],
         "required_clearance": 1,
-        "allowed_departments": ["Engineering", "IT", "Finance"],
+        "allowed_departments": ["Engineering", "IT", "Finance", "Operations", "Security"],
     },
 }
 
