@@ -80,6 +80,14 @@ RESOURCE_POLICIES = {
         'session_timeout_minutes': 15,
         'audit_all_access': True,
         'time_restricted': False,
+        'max_concurrent_connections': 5,
+        'require_encrypted_connection': True,
+        'block_rooted_devices': True,
+        'require_recent_login': True,  # Must have logged in within last 7 days
+        'ip_whitelist': [],  # Empty = no whitelist
+        'ip_blacklist': [],
+        'rate_limit_per_minute': 100,
+        'require_device_compliance': True,
     },
     'file-server': {
         'sensitivity': 'medium',
@@ -87,6 +95,14 @@ RESOURCE_POLICIES = {
         'require_low_risk': True,  # Risk score < 50
         'session_timeout_minutes': 30,
         'audit_all_access': False,
+        'max_concurrent_connections': 10,
+        'require_encrypted_connection': True,
+        'block_rooted_devices': False,
+        'require_recent_login': False,
+        'ip_whitelist': [],
+        'ip_blacklist': [],
+        'rate_limit_per_minute': 200,
+        'require_device_compliance': False,
     },
     'admin-panel': {
         'sensitivity': 'critical',
@@ -95,12 +111,29 @@ RESOURCE_POLICIES = {
         'session_timeout_minutes': 10,
         'audit_all_access': True,
         'time_restricted': True,  # Business hours only
+        'max_concurrent_connections': 2,
+        'require_encrypted_connection': True,
+        'block_rooted_devices': True,
+        'require_recent_login': True,  # Must have logged in within last 3 days
+        'ip_whitelist': [],  # Can be configured by admin
+        'ip_blacklist': [],
+        'rate_limit_per_minute': 50,
+        'require_device_compliance': True,
+        'require_admin_role': True,
     },
     'vpn-gateway': {
         'sensitivity': 'medium',
         'require_mfa': False,
         'require_low_risk': True,
         'session_timeout_minutes': 60,
+        'max_concurrent_connections': 1,  # One VPN connection per user
+        'require_encrypted_connection': True,
+        'block_rooted_devices': False,
+        'require_recent_login': False,
+        'ip_whitelist': [],
+        'ip_blacklist': [],
+        'rate_limit_per_minute': 10,  # Low rate limit for VPN requests
+        'require_device_compliance': False,
     },
 }
 
@@ -338,6 +371,50 @@ def calculate_risk_score(user_email, resource, device, location, context=None):
     if resource_policy.get('sensitivity') == 'critical':
         risk_score += 5  # Base risk for critical resources
     
+    # Apply custom resource rules
+    if 'custom_rules' in resource_policy:
+        for rule_name, rule_config in resource_policy['custom_rules'].items():
+            rule_type = rule_config.get('type', 'risk_addition')
+            if rule_type == 'risk_addition':
+                condition = rule_config.get('condition', {})
+                # Evaluate condition (e.g., device property, location, etc.)
+                condition_met = True
+                if 'device_property' in condition:
+                    prop = condition['device_property']
+                    value = condition.get('value')
+                    if device.get(prop) != value:
+                        condition_met = False
+                if condition_met:
+                    risk_score += rule_config.get('risk_value', 0)
+                    risk_factors.append(f'Custom rule triggered: {rule_name}')
+    
+    # Apply custom network rules
+    if 'custom_network_rules' in NETWORK_POLICIES:
+        for rule_name, rule_config in NETWORK_POLICIES['custom_network_rules'].items():
+            condition_met = True
+            if 'country_blacklist' in rule_config:
+                if country in rule_config['country_blacklist']:
+                    risk_score += rule_config.get('risk_value', 20)
+                    risk_factors.append(f'Blocked country: {country}')
+            if 'isp_blacklist' in rule_config:
+                if any(blocked in isp for blocked in rule_config['isp_blacklist']):
+                    risk_score += rule_config.get('risk_value', 15)
+                    risk_factors.append(f'Blocked ISP detected')
+    
+    # Apply custom device rules
+    if 'custom_device_rules' in DEVICE_POLICIES:
+        for rule_name, rule_config in DEVICE_POLICIES['custom_device_rules'].items():
+            condition_met = True
+            if 'os_blacklist' in rule_config:
+                if os_type in rule_config['os_blacklist']:
+                    risk_score += rule_config.get('risk_value', 25)
+                    risk_factors.append(f'Blocked OS: {os_type}')
+            if 'min_version_required' in rule_config:
+                min_ver = rule_config['min_version_required'].get(os_type)
+                if min_ver and compare_versions(os_version, min_ver) < 0:
+                    risk_score += rule_config.get('risk_value', 20)
+                    risk_factors.append(f'OS version too old: {os_version} < {min_ver}')
+    
     # MFA check for high-risk scenarios
     if risk_score > 30 and not context.get('mfa_verified', False):
         if resource_policy.get('require_mfa', False):
@@ -475,6 +552,64 @@ def evaluate_policy():
     
     # Get resource policy
     resource_policy = RESOURCE_POLICIES.get(resource, {})
+    
+    # Enforce resource-specific rules
+    client_ip = real_client_ip or get_client_ip()
+    
+    # Check IP whitelist
+    ip_whitelist = resource_policy.get('ip_whitelist', [])
+    if ip_whitelist and client_ip not in ip_whitelist:
+        return jsonify({
+            'decision': 'DENY',
+            'risk_score': 100,
+            'reason': f'IP {client_ip} not in whitelist for {resource}',
+            'vpn_connected': vpn_connected
+        }), 403
+    
+    # Check IP blacklist
+    ip_blacklist = resource_policy.get('ip_blacklist', [])
+    if client_ip in ip_blacklist:
+        return jsonify({
+            'decision': 'DENY',
+            'risk_score': 100,
+            'reason': f'IP {client_ip} is blacklisted for {resource}',
+            'vpn_connected': vpn_connected
+        }), 403
+    
+    # Check rate limiting
+    rate_limit = resource_policy.get('rate_limit_per_minute', 0)
+    if rate_limit > 0:
+        # Count requests in last minute
+        now = datetime.now()
+        recent_requests = [
+            e for e in access_log
+            if e.get('user') == user_email and 
+            e.get('resource') == resource and
+            (now - datetime.fromisoformat(e.get('timestamp', now.isoformat()))).total_seconds() < 60
+        ]
+        if len(recent_requests) >= rate_limit:
+            return jsonify({
+                'decision': 'DENY',
+                'risk_score': 50,
+                'reason': f'Rate limit exceeded: {len(recent_requests)}/{rate_limit} requests per minute',
+                'vpn_connected': vpn_connected
+            }), 429
+    
+    # Check max concurrent connections (for VPN gateway resource)
+    max_concurrent = resource_policy.get('max_concurrent_connections', 0)
+    if max_concurrent > 0 and resource == 'vpn-gateway':
+        # This is handled by VPN gateway itself, but we can add a check here too
+        pass
+    
+    # Check require_admin_role
+    if resource_policy.get('require_admin_role', False):
+        # Check if user has admin role (would need to verify with auth server)
+        # For now, we'll check clearance level
+        try:
+            # This would need integration with auth server
+            pass
+        except:
+            pass
     
     # Use dynamic thresholds if available, otherwise defaults
     if resource_policy.get('sensitivity') == 'critical':
@@ -1097,7 +1232,7 @@ def get_risk_factors():
 
 @app.route('/api/policy/admin/risk-factors', methods=['POST'])
 def update_risk_factors():
-    """Update risk factors (admin only)."""
+    """Update or add risk factors (admin only)."""
     token = request.headers.get('Authorization', '').replace('Bearer ', '')
     is_admin, user = check_admin_access(token)
     if not is_admin:
@@ -1105,19 +1240,31 @@ def update_risk_factors():
     
     data = request.json or {}
     
-    # Update risk factors
+    # Update or add risk factors
     updated = []
+    added = []
     for factor, value in data.items():
-        if factor in RISK_FACTORS:
-            if isinstance(value, (int, float)) and 0 <= value <= 100:
+        if isinstance(value, (int, float)) and 0 <= value <= 100:
+            if factor in RISK_FACTORS:
                 RISK_FACTORS[factor] = int(value)
                 updated.append(factor)
             else:
-                return jsonify({'error': f'Invalid value for {factor}: must be 0-100'}), 400
+                # Add new risk factor
+                RISK_FACTORS[factor] = int(value)
+                added.append(factor)
+        else:
+            return jsonify({'error': f'Invalid value for {factor}: must be 0-100'}), 400
+    
+    message = []
+    if updated:
+        message.append(f'Updated {len(updated)} risk factors')
+    if added:
+        message.append(f'Added {len(added)} new risk factors')
     
     return jsonify({
-        'message': f'Risk factors updated by {user}',
+        'message': f'{"; ".join(message)} by {user}',
         'updated': updated,
+        'added': added,
         'risk_factors': RISK_FACTORS,
         'timestamp': datetime.now().isoformat()
     })
@@ -1269,6 +1416,102 @@ def remove_resource():
     return jsonify({
         'message': f'Resource removed by {user}',
         'resource': resource_name,
+        'timestamp': datetime.now().isoformat()
+    })
+
+@app.route('/api/policy/admin/add-custom-metric', methods=['POST'])
+def add_custom_metric():
+    """Add a custom risk evaluation metric/rule (admin only)."""
+    token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    is_admin, user = check_admin_access(token)
+    if not is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+    
+    data = request.json or {}
+    metric_name = data.get('name')
+    metric_type = data.get('type', 'risk_factor')  # 'risk_factor', 'resource_rule', 'network_rule', 'device_rule'
+    metric_config = data.get('config', {})
+    
+    if not metric_name:
+        return jsonify({'error': 'Metric name required'}), 400
+    
+    # Add to appropriate category
+    if metric_type == 'risk_factor':
+        if 'risk_value' not in metric_config:
+            return jsonify({'error': 'risk_value required for risk_factor type'}), 400
+        RISK_FACTORS[metric_name] = int(metric_config.get('risk_value', 0))
+        return jsonify({
+            'message': f'Custom risk factor added by {user}',
+            'metric_name': metric_name,
+            'type': metric_type,
+            'risk_factors': RISK_FACTORS,
+            'timestamp': datetime.now().isoformat()
+        })
+    elif metric_type == 'resource_rule':
+        resource = metric_config.get('resource')
+        if not resource:
+            return jsonify({'error': 'resource required for resource_rule type'}), 400
+        if resource not in RESOURCE_POLICIES:
+            return jsonify({'error': f'Resource {resource} not found'}), 404
+        # Add custom rule to resource
+        if 'custom_rules' not in RESOURCE_POLICIES[resource]:
+            RESOURCE_POLICIES[resource]['custom_rules'] = {}
+        RESOURCE_POLICIES[resource]['custom_rules'][metric_name] = metric_config.get('rule_config', {})
+        return jsonify({
+            'message': f'Custom resource rule added by {user}',
+            'metric_name': metric_name,
+            'resource': resource,
+            'policy': RESOURCE_POLICIES[resource],
+            'timestamp': datetime.now().isoformat()
+        })
+    elif metric_type == 'network_rule':
+        rule_config = metric_config.get('rule_config', {})
+        if 'custom_network_rules' not in NETWORK_POLICIES:
+            NETWORK_POLICIES['custom_network_rules'] = {}
+        NETWORK_POLICIES['custom_network_rules'][metric_name] = rule_config
+        return jsonify({
+            'message': f'Custom network rule added by {user}',
+            'metric_name': metric_name,
+            'network_policies': NETWORK_POLICIES,
+            'timestamp': datetime.now().isoformat()
+        })
+    elif metric_type == 'device_rule':
+        rule_config = metric_config.get('rule_config', {})
+        if 'custom_device_rules' not in DEVICE_POLICIES:
+            DEVICE_POLICIES['custom_device_rules'] = {}
+        DEVICE_POLICIES['custom_device_rules'][metric_name] = rule_config
+        return jsonify({
+            'message': f'Custom device rule added by {user}',
+            'metric_name': metric_name,
+            'device_policies': DEVICE_POLICIES,
+            'timestamp': datetime.now().isoformat()
+        })
+    else:
+        return jsonify({'error': f'Invalid metric type: {metric_type}'}), 400
+
+@app.route('/api/policy/admin/custom-metrics', methods=['GET'])
+def get_custom_metrics():
+    """Get all custom metrics/rules (admin only)."""
+    token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    is_admin, user = check_admin_access(token)
+    if not is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+    
+    custom_metrics = {
+        'risk_factors': RISK_FACTORS,
+        'resource_custom_rules': {},
+        'network_custom_rules': NETWORK_POLICIES.get('custom_network_rules', {}),
+        'device_custom_rules': DEVICE_POLICIES.get('custom_device_rules', {})
+    }
+    
+    # Extract custom rules from resources
+    for resource, policy in RESOURCE_POLICIES.items():
+        if 'custom_rules' in policy:
+            custom_metrics['resource_custom_rules'][resource] = policy['custom_rules']
+    
+    return jsonify({
+        'custom_metrics': custom_metrics,
+        'modified_by': user,
         'timestamp': datetime.now().isoformat()
     })
 

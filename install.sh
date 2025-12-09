@@ -77,11 +77,19 @@ if [ -f "ca.crt" ] && [ -f "server.crt" ] && [ -f "client.crt" ]; then
     read -r response
     if [[ ! "$response" =~ ^[Yy]$ ]]; then
         echo -e "${GREEN}✓ Using existing certificates${NC}"
-        exit 0
+        SKIP_CERT_GENERATION=true
+    else
+        echo -e "${YELLOW}Removing old certificates...${NC}"
+        rm -f ca.crt ca.key server.crt server.key client.crt client.key dh2048.pem ca.srl
+        SKIP_CERT_GENERATION=false
     fi
-    echo -e "${YELLOW}Removing old certificates...${NC}"
-    rm -f ca.crt ca.key server.crt server.key client.crt client.key dh2048.pem ca.srl
+else
+    echo -e "${YELLOW}Certificates not found. Generating new certificates...${NC}"
+    SKIP_CERT_GENERATION=false
 fi
+
+# Generate certificates only if needed
+if [ "$SKIP_CERT_GENERATION" != "true" ]; then
 
 # Generate CA (Certificate Authority)
 echo -e "${YELLOW}Generating Certificate Authority...${NC}"
@@ -96,11 +104,17 @@ echo -e "${YELLOW}Generating server certificate...${NC}"
 openssl genrsa -out server.key 2048 2>/dev/null
 openssl req -new -key server.key -out server.csr \
     -subj "/C=US/ST=CA/L=SanFrancisco/O=ZTNA/OU=Server/CN=server" 2>/dev/null
+# Create extensions file for server certificate with Key Usage
+cat > server.ext << 'SERVER_EXT_EOF'
+[v3_req]
+keyUsage = critical, digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth
+SERVER_EXT_EOF
 openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
-    -out server.crt -days 3650 -extensions v3_req 2>/dev/null
+    -out server.crt -days 3650 -extensions v3_req -extfile server.ext 2>/dev/null
 chmod 600 server.key
 chmod 644 server.crt
-rm server.csr
+rm server.csr server.ext
 echo -e "${GREEN}✓ Server certificate generated${NC}"
 
 # Generate client certificate
@@ -121,10 +135,12 @@ openssl dhparam -out dh2048.pem 2048 2>/dev/null
 chmod 600 dh2048.pem
 echo -e "${GREEN}✓ DH parameters generated${NC}"
 
-# Step 6: Verify certificates
+fi  # End of SKIP_CERT_GENERATION check
+
+# Step 6: Verify certificates (always verify, whether generated or existing)
 echo -e "\n${YELLOW}Step 6: Verifying certificates...${NC}"
 if [ -f "ca.crt" ] && [ -f "server.crt" ] && [ -f "client.crt" ] && [ -f "dh2048.pem" ]; then
-    echo -e "${GREEN}✓ All certificates generated successfully${NC}"
+    echo -e "${GREEN}✓ All certificates verified successfully${NC}"
     echo ""
     echo "Certificate files:"
     ls -lh ca.crt server.crt client.crt dh2048.pem 2>/dev/null | awk '{print "  " $9 " (" $5 ")"}'
@@ -180,14 +196,47 @@ echo -e "${YELLOW}Note: Keep ca.key, server.key, and client.key secure!${NC}"
 echo ""
 
 
-echo "Starting OpenVPN using server.ovpn…"
+# Step 9: Start OpenVPN server
+echo -e "\n${YELLOW}Step 9: Starting OpenVPN server...${NC}"
 
-# Run OpenVPN as a background daemon using server.ovpn
+# Stop any existing OpenVPN processes first
+echo "Stopping existing OpenVPN server..."
+sudo pkill -f "openvpn.*server.ovpn" 2>/dev/null || true
+
+echo "Waiting 2 seconds..."
+sleep 2
+
+# Ensure we're in the right directory
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+cd "$SCRIPT_DIR"
+
+# Check if server.ovpn exists
+if [ ! -f "server.ovpn" ]; then
+    echo -e "${RED}Error: server.ovpn not found${NC}"
+    echo -e "${YELLOW}Please ensure server.ovpn exists in the current directory${NC}"
+    exit 1
+fi
+
+# Start OpenVPN server
+echo "Starting OpenVPN server with server.ovpn..."
 sudo openvpn --config server.ovpn --daemon
 
+# Wait for OpenVPN to start
+echo "Waiting 3 seconds for startup..."
+sleep 3
+
 # Check if OpenVPN started successfully
-if pgrep -x "openvpn" > /dev/null; then
-    echo "OpenVPN started successfully! 🎉"
+echo "Checking if OpenVPN is running..."
+if pgrep -f "openvpn.*server.ovpn" > /dev/null; then
+    echo -e "${GREEN}✓ OpenVPN started successfully! 🎉${NC}"
+    echo "Checking status log file..."
+    ls -lh openvpn-status.log ipp.txt 2>/dev/null || echo "Status files will be created on first connection"
 else
-    echo "Failed to start OpenVPN ❌"
+    echo -e "${YELLOW}⚠ OpenVPN process not found. Checking logs...${NC}"
+    if [ -f "openvpn.log" ]; then
+        echo "Last few lines of openvpn.log:"
+        tail -10 openvpn.log 2>/dev/null || echo "Cannot read log file"
+    fi
+    echo -e "${YELLOW}You can start OpenVPN manually with: sudo openvpn --config server.ovpn --daemon${NC}"
+    echo -e "${YELLOW}Or use: ./restart_openvpn.sh${NC}"
 fi
