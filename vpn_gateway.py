@@ -204,34 +204,431 @@ def ensure_status_files():
     except Exception as e:
         print(f"[VPN] Warning: Could not set file permissions: {e}")
 
+def cleanup_stale_ipp_entries():
+    """
+    Clean up stale entries in ipp.txt that don't have active connections.
+    ipp.txt persists across restarts, but can accumulate stale entries.
+    This function removes entries for clients that are not currently connected.
+    Also cleans up assigned_ips dict.
+    """
+    # First clean up assigned_ips dict
+    cleanup_stale_assigned_ips()
+    
+    if not os.path.exists('ipp.txt'):
+        return
+    
+    # Get active connections from status log (if OpenVPN is working)
+    active_clients = {}
+    active_ips_from_log = set()
+    try:
+        status_data = read_openvpn_status()
+        for client in status_data.get('clients', []):
+            cn = client.get('common_name', '').strip().lower()
+            vpn_ip = client.get('virtual_address', '').strip()
+            if cn and vpn_ip:
+                active_clients[cn] = vpn_ip
+                active_clients[vpn_ip] = cn  # Also index by IP
+                active_ips_from_log.add(vpn_ip)
+    except Exception as e:
+        print(f"[VPN] ⚠ Error reading OpenVPN status log (may have errors): {e}")
+        # Continue with backend-only check if OpenVPN status log fails
+    
+    # Also check backend connections dict for active connections
+    # This catches disconnects immediately even before status log updates
+    # This is especially important when OpenVPN has errors
+    backend_active_ips = set()
+    backend_active_cns = set()
+    for conn_id, conn in connections.items():
+        if conn.get('status') in ['active', 'connected']:
+            cn = conn.get('user', '').lower().strip()
+            ip = conn.get('vpn_ip', '').strip()
+            if cn:
+                backend_active_cns.add(cn)
+            if ip:
+                backend_active_ips.add(ip)
+    
+    # Combine all sources - keep entry if active in status log OR backend
+    # NOTE: We don't use assigned_ips here to avoid circular dependency
+    all_active_cns = set(active_clients.keys()) | backend_active_cns
+    all_active_ips = active_ips_from_log | backend_active_ips
+    
+    # Read current ipp.txt
+    ipp_data = read_ipp_file()
+    valid_entries = []
+    stale_count = 0
+    
+    for assignment in ipp_data.get('assignments', []):
+        cn = assignment.get('common_name', '').strip().lower()
+        ip_addr = assignment.get('ip_address', '').strip()
+        
+        # Keep entry if:
+        # 1. Client is active in status log, OR
+        # 2. Client is active in backend connections
+        if (cn in all_active_cns or ip_addr in all_active_ips):
+            valid_entries.append(f"{assignment.get('common_name', '')},{ip_addr},")
+        else:
+            stale_count += 1
+            print(f"[VPN] Removing stale ipp.txt entry: {cn} -> {ip_addr} (not in status log or backend connections)")
+    
+    # Write back only valid entries
+    if stale_count > 0 or len(valid_entries) != len(ipp_data.get('assignments', [])):
+        try:
+            with open('ipp.txt', 'w') as f:
+                for entry in valid_entries:
+                    f.write(entry + '\n')
+            print(f"[VPN] Cleaned ipp.txt: removed {stale_count} stale entries, kept {len(valid_entries)} active entries")
+        except Exception as e:
+            print(f"[VPN] Error cleaning ipp.txt: {e}")
+
+def sync_assigned_ips_from_routing_table():
+    """
+    Sync assigned_ips dictionary FROM the routing table.
+    Adds any IPs that are in the routing table AND have an active backend connection.
+    This ensures assigned_ips stays in sync with OpenVPN's actual routing state,
+    but only for connections that are actively tracked in the backend.
+    
+    IMPORTANT: Does NOT add IPs from routing table if there's no active backend connection.
+    This prevents re-adding IPs that were just disconnected but haven't been removed
+    from OpenVPN's routing table yet (OpenVPN updates routing table every 10 seconds).
+    """
+    global assigned_ips
+    
+    try:
+        status_data = read_openvpn_status()
+        routing_table = status_data.get('routing_table', [])
+        clients = status_data.get('clients', [])
+        
+        # Build a map of IP -> CN from routing table
+        routing_ip_to_cn = {}
+        for route in routing_table:
+            route_ip = route.get('virtual_address', '').strip()
+            route_cn = route.get('common_name', '').strip().lower()
+            if route_ip and route_ip.startswith('10.8.0.'):
+                routing_ip_to_cn[route_ip] = route_cn
+        
+        # Build a map of IP -> CN from client list
+        client_ip_to_cn = {}
+        for client in clients:
+            client_ip = client.get('virtual_address', '').strip()
+            client_cn = client.get('common_name', '').strip().lower()
+            if client_ip and client_ip.startswith('10.8.0.'):
+                client_ip_to_cn[client_ip] = client_cn
+        
+        # For each IP in routing table, ensure it's in assigned_ips ONLY if there's an active backend connection
+        added_count = 0
+        skipped_count = 0
+        for route_ip, route_cn in routing_ip_to_cn.items():
+            if route_ip not in assigned_ips:
+                # Try to find matching ACTIVE connection ID in backend
+                matching_conn_id = None
+                for conn_id, conn in connections.items():
+                    if (conn.get('status') in ['active', 'connected'] and
+                        (conn.get('user', '').lower().strip() == route_cn or 
+                         conn.get('vpn_ip', '').strip() == route_ip)):
+                        matching_conn_id = conn_id
+                        break
+                
+                if matching_conn_id:
+                    # Only add if there's an active backend connection
+                    assigned_ips[route_ip] = matching_conn_id
+                    added_count += 1
+                    print(f"[VPN] Synced IP {route_ip} from routing table to assigned_ips (CN: {route_cn}, conn: {matching_conn_id})")
+                else:
+                    # Don't add IPs from routing table if there's no active backend connection
+                    # This prevents re-adding IPs that were just disconnected
+                    skipped_count += 1
+                    print(f"[VPN] Skipped syncing IP {route_ip} from routing table (CN: {route_cn}) - no active backend connection found")
+        
+        if added_count > 0:
+            print(f"[VPN] Synced {added_count} IP(s) from routing table to assigned_ips")
+        if skipped_count > 0:
+            print(f"[VPN] Skipped {skipped_count} IP(s) from routing table (no active backend connections)")
+    except Exception as e:
+        print(f"[VPN] ⚠ Error syncing assigned_ips from routing table: {e}")
+
+def cleanup_stale_assigned_ips():
+    """
+    Clean up stale entries in assigned_ips dictionary.
+    Removes IPs that are not associated with active backend connections.
+    
+    IMPORTANT: An IP is considered stale if:
+    1. It's NOT in active backend connections, AND
+    2. It's NOT in CLIENT_LIST (which is more reliable than routing table during disconnects)
+    
+    We do NOT rely solely on routing table because it can lag behind during disconnects
+    (OpenVPN updates routing table every 10 seconds, but CLIENT_LIST updates immediately).
+    """
+    global assigned_ips
+    
+    # First, sync FROM routing table to add any missing IPs (only if active backend connection exists)
+    sync_assigned_ips_from_routing_table()
+    
+    # Get active connections from backend
+    active_connection_ids = set()
+    active_ips_from_backend = set()
+    for conn_id, conn in connections.items():
+        if conn.get('status') in ['active', 'connected']:
+            active_connection_ids.add(conn_id)
+            vpn_ip = conn.get('vpn_ip', '').strip()
+            if vpn_ip:
+                active_ips_from_backend.add(vpn_ip)
+    
+    # Get active IPs from OpenVPN status log (CLIENT_LIST is more reliable than ROUTING_TABLE)
+    active_ips_from_log = set()
+    active_ips_from_routing = set()
+    routing_ips_with_backend_conn = set()  # IPs in routing table that have backend connections
+    try:
+        status_data = read_openvpn_status()
+        # Check CLIENT_LIST (most reliable - updates immediately on disconnect)
+        for client in status_data.get('clients', []):
+            vpn_ip = client.get('virtual_address', '').strip()
+            if vpn_ip and vpn_ip.startswith('10.8.0.'):
+                active_ips_from_log.add(vpn_ip)
+        
+        # Check ROUTING_TABLE - but only trust it if there's also a backend connection
+        for route in status_data.get('routing_table', []):
+            route_ip = route.get('virtual_address', '').strip()
+            route_cn = route.get('common_name', '').strip().lower()
+            if route_ip and route_ip.startswith('10.8.0.'):
+                active_ips_from_routing.add(route_ip)
+                # Check if this IP has an active backend connection
+                has_backend_conn = False
+                for conn_id, conn in connections.items():
+                    if (conn.get('status') in ['active', 'connected'] and
+                        (conn.get('user', '').lower().strip() == route_cn or 
+                         conn.get('vpn_ip', '').strip() == route_ip)):
+                        has_backend_conn = True
+                        routing_ips_with_backend_conn.add(route_ip)
+                        break
+    except Exception as e:
+        print(f"[VPN] ⚠ Error reading status log for IP cleanup: {e}")
+    
+    # IPs to keep: must be in backend connections OR in CLIENT_LIST OR in routing table WITH backend connection
+    # We prioritize backend connections and CLIENT_LIST over routing table
+    ips_to_keep = active_ips_from_backend | active_ips_from_log | routing_ips_with_backend_conn
+    
+    # Remove stale IPs from assigned_ips
+    stale_ips = []
+    for ip, conn_id in list(assigned_ips.items()):
+        # Keep IP if:
+        # 1. It's in active backend connections (by IP or connection_id), OR
+        # 2. It's in CLIENT_LIST (most reliable), OR
+        # 3. It's in routing table AND has an active backend connection
+        if (ip in ips_to_keep or 
+            conn_id in active_connection_ids):
+            continue
+        else:
+            stale_ips.append(ip)
+            del assigned_ips[ip]
+            print(f"[VPN] Removed stale IP from assigned_ips: {ip} (was assigned to {conn_id}, not in active backend connections or CLIENT_LIST)")
+    
+    if stale_ips:
+        print(f"[VPN] Cleaned assigned_ips: removed {len(stale_ips)} stale IP(s), kept {len(assigned_ips)} active IP(s)")
+        print(f"[VPN]   Active IPs from backend: {sorted(active_ips_from_backend)}")
+        print(f"[VPN]   Active IPs from CLIENT_LIST: {sorted(active_ips_from_log)}")
+        print(f"[VPN]   Active IPs from routing table (with backend conn): {sorted(routing_ips_with_backend_conn)}")
+        print(f"[VPN]   Total routing table IPs: {sorted(active_ips_from_routing)}")
+
 def sync_ip_assignments_from_openvpn():
-    """Sync IP assignments from OpenVPN status log and ipp.txt on startup."""
+    """Sync IP assignments from OpenVPN status log and ipp.txt on startup.
+    Only syncs IPs for ACTIVE connections (in status log AND backend connections)."""
     global assigned_ips
     
     print("[VPN] Syncing IP assignments from OpenVPN...")
     
-    # Read from status log
+    # First, clean up stale entries in ipp.txt and assigned_ips
+    cleanup_stale_ipp_entries()
+    
+    # Get active connections from backend
+    active_connection_ids = set()
+    active_ips_from_backend = set()
+    active_cns_from_backend = {}
+    for conn_id, conn in connections.items():
+        if conn.get('status') in ['active', 'connected']:
+            active_connection_ids.add(conn_id)
+            vpn_ip = conn.get('vpn_ip', '').strip()
+            user_email = conn.get('user', '').lower().strip()
+            if vpn_ip:
+                active_ips_from_backend.add(vpn_ip)
+            if user_email:
+                active_cns_from_backend[user_email] = conn_id
+    
+    # Read from status log (current active connections)
     status_data = read_openvpn_status()
+    active_ips_from_log = set()
+    active_cns_from_log = {}
+    
     for client in status_data.get('clients', []):
         vpn_ip = client.get('virtual_address', '').strip()
-        cn = client.get('common_name', '').strip()
+        cn = client.get('common_name', '').strip().lower()
         if vpn_ip and vpn_ip.startswith('10.8.0.'):
-            # Create a temporary connection ID for tracking
-            temp_id = f"openvpn-{cn}-{vpn_ip}"
-            assigned_ips[vpn_ip] = temp_id
-            print(f"[VPN] Synced IP {vpn_ip} from status log (CN: {cn})")
+            active_ips_from_log.add(vpn_ip)
+            if cn:
+                active_cns_from_log[cn] = vpn_ip
+            # Only sync if IP is also in backend active connections
+            # Find matching connection ID
+            matching_conn_id = None
+            for conn_id, conn in connections.items():
+                if (conn.get('status') in ['active', 'connected'] and
+                    (conn.get('user', '').lower().strip() == cn or 
+                     conn.get('vpn_ip', '').strip() == vpn_ip)):
+                    matching_conn_id = conn_id
+                    break
+            
+            if matching_conn_id:
+                assigned_ips[vpn_ip] = matching_conn_id
+                print(f"[VPN] Synced IP {vpn_ip} from status log (CN: {cn}, conn: {matching_conn_id})")
+            elif vpn_ip in active_ips_from_log:
+                # IP is in status log but no backend connection - create temp entry
+                temp_id = f"openvpn-{cn}-{vpn_ip}"
+                assigned_ips[vpn_ip] = temp_id
+                print(f"[VPN] Synced IP {vpn_ip} from status log (CN: {cn}, temp entry)")
     
-    # Read from ipp.txt
+    # Read from ipp.txt but only sync if it matches an active connection
     ipp_data = read_ipp_file()
     for assignment in ipp_data.get('assignments', []):
         ip_addr = assignment.get('ip_address', '').strip()
-        cn = assignment.get('common_name', '').strip()
+        cn = assignment.get('common_name', '').strip().lower()
         if ip_addr and ip_addr.startswith('10.8.0.'):
-            temp_id = f"ipp-{cn}-{ip_addr}"
-            assigned_ips[ip_addr] = temp_id
-            print(f"[VPN] Synced IP {ip_addr} from ipp.txt (CN: {cn})")
+            # Only sync if this IP is active in status log OR backend
+            if ip_addr in active_ips_from_log or ip_addr in active_ips_from_backend:
+                # Find matching connection ID
+                matching_conn_id = None
+                for conn_id, conn in connections.items():
+                    if (conn.get('status') in ['active', 'connected'] and
+                        (conn.get('user', '').lower().strip() == cn or 
+                         conn.get('vpn_ip', '').strip() == ip_addr)):
+                        matching_conn_id = conn_id
+                        break
+                
+                if matching_conn_id:
+                    assigned_ips[ip_addr] = matching_conn_id
+                    print(f"[VPN] Synced IP {ip_addr} from ipp.txt (CN: {cn}, conn: {matching_conn_id})")
+                elif ip_addr in active_ips_from_log:
+                    # IP is in status log but no backend connection - create temp entry
+                    temp_id = f"ipp-{cn}-{ip_addr}"
+                    assigned_ips[ip_addr] = temp_id
+                    print(f"[VPN] Synced IP {ip_addr} from ipp.txt (CN: {cn}, temp entry)")
+            else:
+                print(f"[VPN] ⚠ Skipping stale IP {ip_addr} from ipp.txt (CN: {cn}) - not active")
+    
+    # Final cleanup to remove any stale entries
+    cleanup_stale_assigned_ips()
     
     print(f"[VPN] Synced {len(assigned_ips)} IP assignments")
+
+def sync_connection_status_with_openvpn():
+    """
+    Sync connection status with OpenVPN status log.
+    Mark connections as disconnected if they're not in the status log.
+    This handles cases where client processes failed but connections were initially tracked.
+    """
+    global connections
+    
+    # Only sync if OpenVPN is actually running
+    if not is_openvpn_installed() or not is_openvpn_running():
+        return
+    
+    status_data = read_openvpn_status()
+    status_log_clients = status_data.get('clients', [])
+    
+    # Build a set of active clients from status log (by CN and IP)
+    active_in_status_log = set()
+    for client in status_log_clients:
+        cn = client.get('common_name', '').strip().lower()
+        vpn_ip = client.get('virtual_address', '').strip()
+        if cn:
+            active_in_status_log.add(cn)
+        if vpn_ip:
+            active_in_status_log.add(vpn_ip)
+    
+    # Check all active connections
+    disconnected_count = 0
+    for conn_id, conn in list(connections.items()):
+        conn_status = conn.get('status', '')
+        if conn_status not in ['active', 'connected']:
+            continue  # Skip already disconnected/terminated connections
+        
+        user_email = conn.get('user', '').lower().strip()
+        vpn_ip = conn.get('vpn_ip', '').strip()
+        connection_mode = conn.get('connection_mode', '')
+        
+        # Only check OpenVPN connections (not mock)
+        if connection_mode not in ['openvpn']:
+            continue
+        
+        # Check if this connection exists in status log
+        found_in_log = False
+        
+        # Check by user email (CN)
+        if user_email and user_email in active_in_status_log:
+            found_in_log = True
+        
+        # Check by VPN IP
+        if vpn_ip and vpn_ip in active_in_status_log:
+            found_in_log = True
+        
+        # Also check by matching CN in status log clients
+        if not found_in_log:
+            for client in status_log_clients:
+                cn = client.get('common_name', '').strip().lower()
+                client_vpn_ip = client.get('virtual_address', '').strip()
+                if (cn == user_email or 
+                    (vpn_ip and client_vpn_ip == vpn_ip)):
+                    found_in_log = True
+                    break
+        
+        # Also check routing table - if not in routing table, definitely disconnected
+        # OpenVPN automatically removes routes when clients disconnect
+        # Check routing table separately - if client is in CLIENT_LIST but NOT in ROUTING_TABLE,
+        # it might be in a transitional state, but if it's in neither, it's definitely disconnected
+        routing_table = status_data.get('routing_table', [])
+        found_in_routing = False
+        for route in routing_table:
+            route_cn = route.get('common_name', '').strip().lower()
+            route_ip = route.get('virtual_address', '').strip()
+            if (route_cn == user_email or 
+                (vpn_ip and route_ip == vpn_ip)):
+                found_in_routing = True
+                found_in_log = True  # Found in routing table, so still connected
+                break
+        
+        # If found in CLIENT_LIST but NOT in ROUTING_TABLE, it's likely disconnecting
+        # But we'll wait for OpenVPN to fully remove it from CLIENT_LIST
+        # If found in NEITHER, definitely disconnected
+        
+        # If not found in status log, mark as disconnected
+        if not found_in_log:
+            print(f"[VPN] ⚠ Connection {conn_id} (user: {user_email}, IP: {vpn_ip}) not found in status log - marking as disconnected")
+            conn['status'] = 'disconnected'
+            conn['disconnected_at'] = datetime.now().isoformat()
+            conn['disconnect_reason'] = 'Not found in OpenVPN status log (client disconnected)'
+            
+            # Release IP assignment immediately
+            if vpn_ip and vpn_ip in assigned_ips:
+                if assigned_ips[vpn_ip] == conn_id:
+                    del assigned_ips[vpn_ip]
+                    print(f"[VPN] Released IP assignment: {vpn_ip}")
+                else:
+                    # IP assigned to different connection - still remove it
+                    print(f"[VPN] ⚠ IP {vpn_ip} assigned to different connection, removing anyway")
+                    del assigned_ips[vpn_ip]
+            
+            disconnected_count += 1
+    
+    # Always clean up stale ipp.txt entries after syncing
+    # This ensures ipp.txt stays in sync with active connections
+    if disconnected_count > 0:
+        print(f"[VPN] Synced {disconnected_count} connection(s) - marked as disconnected")
+        # Force cleanup of stale entries
+        cleanup_stale_ipp_entries()
+        # Also clean up stale assigned_ips
+        cleanup_stale_assigned_ips()
+    else:
+        # Still cleanup periodically even if no disconnects detected
+        # This handles cases where ipp.txt has stale entries from external disconnects
+        cleanup_stale_ipp_entries()
+        cleanup_stale_assigned_ips()
 
 def start_openvpn_daemon():
     """
@@ -270,13 +667,53 @@ def start_openvpn_daemon():
         print(f"Working directory: {cwd}")
         print(f"Config file exists: {os.path.exists('server.ovpn')}")
         
-        # Try to start OpenVPN (will fail without sudo, but we'll catch the error)
-        openvpn_process = subprocess.Popen(
-            ['openvpn', '--config', 'server.ovpn', '--daemon'],
-            stdout=subprocess.PIPE, 
-            stderr=subprocess.PIPE,
-            cwd=cwd  # Ensure we're in the right directory for config files
-        )
+        # Try to start OpenVPN server with sudo (required for TUN/TAP on macOS)
+        # Reference: https://www.upokary.com/opening-utun-connectaf_sys_control-operation-not-permitted-openvpn-mac/
+        # Note: Server should be started manually with: sudo openvpn --config server.ovpn --daemon
+        # Or use: ./restart_openvpn.sh
+        # This code attempts to start it but may fail if passwordless sudo is not configured
+        try:
+            # Use -n flag to prevent sudo from prompting for password
+            openvpn_process = subprocess.Popen(
+                ['sudo', '-n', 'openvpn', '--config', 'server.ovpn', '--daemon'],
+                stdout=subprocess.PIPE, 
+                stderr=subprocess.PIPE,
+                cwd=cwd  # Ensure we're in the right directory for config files
+            )
+            print("[VPN] Attempted to start OpenVPN server with sudo (passwordless)")
+            # Wait a moment to check if it started
+            time.sleep(1)
+            if openvpn_process.poll() is not None:
+                # Process exited, read error
+                stderr_output = openvpn_process.stderr.read().decode('utf-8', errors='ignore')
+                if 'password' in stderr_output.lower() or 'sudo' in stderr_output.lower():
+                    print("[VPN] ⚠ Sudo password required - server not started")
+                    print("[VPN]   Please start manually: sudo openvpn --config server.ovpn --daemon")
+                    print("[VPN]   Or configure passwordless sudo: sudo visudo")
+                    raise Exception("Sudo password required")
+        except (subprocess.CalledProcessError, FileNotFoundError, Exception) as sudo_error:
+            # If sudo fails, try without sudo (might work if already running as root)
+            error_msg = str(sudo_error)
+            if 'password' in error_msg.lower() or 'sudo' in error_msg.lower():
+                print(f"[VPN] ⚠ Sudo password required - cannot start server automatically")
+                print(f"[VPN]   Please start manually: sudo openvpn --config server.ovpn --daemon")
+                print(f"[VPN]   Or use: ./restart_openvpn.sh")
+                print(f"[VPN]   Or configure passwordless sudo: sudo visudo")
+                print(f"[VPN]   Add: your_username ALL=(ALL) NOPASSWD: /usr/local/bin/openvpn")
+                # Don't try without sudo for server - it needs root privileges
+                return True  # Return True to allow mock mode fallback
+            else:
+                print(f"[VPN] ⚠ Sudo failed, trying without sudo: {sudo_error}")
+                try:
+                    openvpn_process = subprocess.Popen(
+                        ['openvpn', '--config', 'server.ovpn', '--daemon'],
+                        stdout=subprocess.PIPE, 
+                        stderr=subprocess.PIPE,
+                        cwd=cwd
+                    )
+                except Exception as no_sudo_error:
+                    print(f"[VPN] ⚠ Failed to start OpenVPN server: {no_sudo_error}")
+                    return True  # Fall back to mock mode
         time.sleep(2)  # Wait a bit for process to start or fail
         
         # Check if process exited immediately (indicates error)
@@ -357,6 +794,10 @@ def read_openvpn_status():
         with open(status_file, 'r') as f:
             content = f.read()
         
+        # Debug: Log raw content size
+        if len(content) > 0:
+            print(f"[VPN] Reading status log: {len(content)} bytes, {len(content.split(chr(10)))} lines")
+        
         clients = []
         routing_table = []
         global_stats = {}
@@ -412,14 +853,20 @@ def read_openvpn_status():
                         print(f"[VPN]   2. Certificate CN format issue")
                         print(f"[VPN]   3. OpenVPN server configuration issue")
                     
-                    clients.append({
+                    client_info = {
                         'common_name': common_name.strip() if common_name else 'MURALI',
                         'real_address': real_address,
                         'virtual_address': virtual_address.strip(),  # May be empty if IP not assigned yet
                         'bytes_received': parts[5] if len(parts) > 5 else '0',
                         'bytes_sent': parts[6] if len(parts) > 6 else '0',
                         'connected_since': parts[7] if len(parts) > 7 else ''
-                    })
+                    }
+                    clients.append(client_info)
+                    # Debug: Log each client found
+                    if virtual_address:
+                        print(f"[VPN] Found client in status log: CN={common_name}, IP={virtual_address}, Real={real_address}")
+                    else:
+                        print(f"[VPN] Found client in status log (no IP yet): CN={common_name}, Real={real_address}")
             # Parse legacy format
             elif current_section == 'clients' and line.startswith('Common Name'):
                 continue  # Skip header
@@ -440,12 +887,15 @@ def read_openvpn_status():
                 parts = [p.strip() for p in line.split(',')]
                 # Format: ROUTING_TABLE,Virtual Address,Common Name,Real Address,Last Ref,...
                 if len(parts) >= 3:
-                    routing_table.append({
+                    route_info = {
                         'virtual_address': parts[1] if len(parts) > 1 else '',
                         'common_name': parts[2] if len(parts) > 2 else '',
                         'real_address': parts[3] if len(parts) > 3 else '',
                         'last_ref': parts[4] if len(parts) > 4 else ''
-                    })
+                    }
+                    routing_table.append(route_info)
+                    # Debug: Log each route found
+                    print(f"[VPN] Found route in status log: IP={route_info['virtual_address']}, CN={route_info['common_name']}, Real={route_info['real_address']}")
             # Parse legacy routing table
             elif current_section == 'routing' and line.startswith('Virtual Address'):
                 continue  # Skip header
@@ -459,14 +909,21 @@ def read_openvpn_status():
                         'last_ref': parts[3] if len(parts) > 3 else ''
                     })
         
+        # Debug: Log summary
+        print(f"[VPN] Parsed status log: {len(clients)} client(s), {len(routing_table)} route(s)")
+        
         return {
             'clients': clients,
             'routing_table': routing_table,
             'global_stats': global_stats,
-            'last_updated': datetime.now().isoformat()
+            'last_updated': datetime.now().isoformat(),
+            'client_count': len(clients),
+            'routing_count': len(routing_table)
         }
     except Exception as e:
-        print(f"Error reading OpenVPN status: {e}")
+        print(f"[VPN] Error reading OpenVPN status: {e}")
+        import traceback
+        traceback.print_exc()
         return {'clients': [], 'routing_table': [], 'global_stats': {}, 'error': str(e)}
 
 def read_ipp_file():
@@ -789,16 +1246,80 @@ def format_routes_for_openvpn(routes):
     return routes_config
 
 def get_next_available_ip():
-    """Get the next available IP in the 10.8.0.x range, avoiding duplicates."""
+    """Get the next available IP in the 10.8.0.x range, avoiding duplicates.
+    Checks multiple sources to ensure IP is truly free:
+    - assigned_ips dict
+    - Active backend connections
+    - OpenVPN routing table
+    - OpenVPN status log clients
+    """
     global ip_counter
+    
+    # Get all IPs that are currently in use from all sources
+    used_ips = set()
+    
+    # 1. Check assigned_ips dict
+    used_ips.update(assigned_ips.keys())
+    
+    # 2. Check active backend connections
+    for conn_id, conn in connections.items():
+        if conn.get('status') in ['active', 'connected']:
+            vpn_ip = conn.get('vpn_ip', '').strip()
+            if vpn_ip and vpn_ip.startswith('10.8.0.'):
+                used_ips.add(vpn_ip)
+    
+    # 3. Check OpenVPN routing table (most authoritative for actual usage)
+    try:
+        status_data = read_openvpn_status()
+        for route in status_data.get('routing_table', []):
+            route_ip = route.get('virtual_address', '').strip()
+            if route_ip and route_ip.startswith('10.8.0.'):
+                used_ips.add(route_ip)
+        
+        # 4. Check OpenVPN client list
+        for client in status_data.get('clients', []):
+            client_ip = client.get('virtual_address', '').strip()
+            if client_ip and client_ip.startswith('10.8.0.'):
+                used_ips.add(client_ip)
+    except Exception as e:
+        print(f"[VPN] ⚠ Error reading OpenVPN status for IP availability check: {e}")
+        # Continue with assigned_ips and backend connections only
+    
+    # 5. Check ipp.txt for persistent assignments (only if they're active)
+    try:
+        ipp_data = read_ipp_file()
+        # Only consider ipp.txt entries if they're also in routing table or active connections
+        active_ips_from_routing = set()
+        try:
+            status_data = read_openvpn_status()
+            for route in status_data.get('routing_table', []):
+                route_ip = route.get('virtual_address', '').strip()
+                if route_ip:
+                    active_ips_from_routing.add(route_ip)
+        except:
+            pass
+        
+        for assignment in ipp_data.get('assignments', []):
+            ip_addr = assignment.get('ip_address', '').strip()
+            if ip_addr and ip_addr.startswith('10.8.0.'):
+                # Only consider it used if it's also in routing table
+                if ip_addr in active_ips_from_routing:
+                    used_ips.add(ip_addr)
+    except Exception as e:
+        print(f"[VPN] ⚠ Error reading ipp.txt for IP availability check: {e}")
+    
+    print(f"[VPN] Checking IP availability: {len(used_ips)} IP(s) currently in use: {sorted(used_ips)}")
+    
     # Find next available IP (10.8.0.2 to 10.8.0.254)
     max_ip = 254
     start_counter = ip_counter
     
+    # First, try from current counter position
     while ip_counter <= max_ip:
         ip = f'10.8.0.{ip_counter}'
-        # Check if IP is already assigned
-        if ip not in assigned_ips:
+        if ip not in used_ips:
+            ip_counter += 1  # Increment for next call
+            print(f"[VPN] ✓ Found available IP: {ip} (checked {len(used_ips)} used IPs)")
             return ip
         ip_counter += 1
     
@@ -806,12 +1327,15 @@ def get_next_available_ip():
     ip_counter = 2
     while ip_counter <= max_ip:
         ip = f'10.8.0.{ip_counter}'
-        if ip not in assigned_ips:
+        if ip not in used_ips:
+            ip_counter += 1  # Increment for next call
+            print(f"[VPN] ✓ Found available IP (from start): {ip} (checked {len(used_ips)} used IPs)")
             return ip
         ip_counter += 1
     
     # If all IPs are taken, return None (shouldn't happen in practice)
     print(f"[VPN] ⚠ WARNING: All IPs in range 10.8.0.2-10.8.0.254 are assigned!")
+    print(f"[VPN]   Used IPs: {sorted(used_ips)}")
     return None
 
 def find_ip_by_real_address(real_address, status_data, ipp_data):
@@ -872,6 +1396,10 @@ def connect_vpn():
     device = data.get('device', {})
     
     try:
+        # Sync connection status with OpenVPN BEFORE assigning IPs
+        # This ensures we have the latest routing table and know which IPs are truly free
+        sync_connection_status_with_openvpn()
+        
         # Decode and validate JWT
         decoded = jwt.decode(vpn_token, SECRET_KEY, algorithms=['HS256'])
         user_email = decoded.get('email') or decoded.get('user')
@@ -880,9 +1408,38 @@ def connect_vpn():
         if clearance < 1:
             return jsonify({'error': 'Insufficient clearance'}), 403
         
+        # First, clean up any terminated connections for this user
+        terminated_connections = []
+        for conn_id, conn in list(connections.items()):
+            if (conn.get('user') == user_email and 
+                conn_id.startswith(f'vpn-{user_email}-') and
+                conn.get('status') == 'terminated'):
+                terminated_connections.append(conn_id)
+        
+        # Remove terminated connections
+        for conn_id in terminated_connections:
+            vpn_ip = connections[conn_id].get('vpn_ip')
+            # Clean up IP assignment
+            if vpn_ip and vpn_ip in assigned_ips and assigned_ips[vpn_ip] == conn_id:
+                del assigned_ips[vpn_ip]
+            # Clean up files
+            if is_openvpn_installed():
+                subprocess.run(['pkill', '-f', conn_id], capture_output=True)
+                ovpn_file = f'{conn_id}.ovpn'
+                log_file = f'{conn_id}.log'
+                for file_path in [ovpn_file, log_file]:
+                    if os.path.exists(file_path):
+                        try:
+                            os.remove(file_path)
+                        except:
+                            pass
+            del connections[conn_id]
+            print(f"[VPN] Cleaned up terminated connection: {conn_id}")
+        
         # Check if user already has an active connection
         # IMPORTANT: Check BEFORE creating new connection
         existing_connection = None
+        active_connections = []
         for conn_id, conn in list(connections.items()):  # Use list() to avoid modification during iteration
             # Check if connection is active and belongs to this user
             # Note: status can be 'active' or 'connected' (both mean active)
@@ -890,26 +1447,33 @@ def connect_vpn():
             is_active = conn_status in ['active', 'connected']
             
             if (conn.get('user') == user_email and 
-                is_active and
                 conn_id.startswith(f'vpn-{user_email}-')):  # Extra check to ensure it's a VPN connection
-                existing_connection = {
-                    'connection_id': conn_id,
-                    'connected_at': conn.get('connected_at'),
-                    'vpn_ip': conn.get('vpn_ip'),
-                    'real_client_ip': conn.get('real_client_ip'),
-                    'location': conn.get('location'),
-                    'connection_mode': conn.get('connection_mode', 'unknown'),
-                    'status': conn_status
-                }
-                print(f"[DEBUG] Found existing connection for {user_email}: {conn_id} (status: {conn_status})")
-                break
+                if is_active:
+                    active_connections.append(conn_id)
+                    if not existing_connection:  # Use the first active connection found
+                        existing_connection = {
+                            'connection_id': conn_id,
+                            'connected_at': conn.get('connected_at'),
+                            'vpn_ip': conn.get('vpn_ip'),
+                            'real_client_ip': conn.get('real_client_ip'),
+                            'location': conn.get('location'),
+                            'connection_mode': conn.get('connection_mode', 'unknown'),
+                            'status': conn_status
+                        }
+        
+        # If multiple active connections found, log warning and use the first one
+        if len(active_connections) > 1:
+            print(f"[VPN] ⚠ WARNING: Multiple active connections found for {user_email}: {active_connections}")
+            print(f"[VPN] This should not happen. Keeping first connection: {active_connections[0]}")
         
         if existing_connection:
-            print(f"[DEBUG] Rejecting duplicate connection attempt for {user_email}")
+            print(f"[VPN] Rejecting duplicate connection attempt for {user_email}")
+            print(f"[VPN] Active connection exists: {existing_connection['connection_id']} (status: {existing_connection['status']})")
             return jsonify({
                 'error': 'User already has an active VPN connection',
                 'existing_connection': existing_connection,
-                'message': 'Please disconnect the existing connection before creating a new one'
+                'message': 'Please disconnect the existing connection before creating a new one',
+                'connection_id': existing_connection['connection_id']
             }), 409  # 409 Conflict
         
         # Get real client IP and location BEFORE VPN connection
@@ -1023,32 +1587,132 @@ def connect_vpn():
                 print(f"[VPN] Using certificate: {client_cert} (CN should be: {user_email})")
                 
                 # Start client with output to log file for debugging
+                # Use sudo to avoid TUN/TAP permission errors on macOS
+                # Reference: https://www.upokary.com/opening-utun-connectaf_sys_control-operation-not-permitted-openvpn-mac/
                 log_file = f'{connection_id}.log'
                 with open(log_file, 'w') as log_f:
-                    client_proc = subprocess.Popen(
-                        ['openvpn', '--config', ovpn_file], 
-                        stdout=log_f,
-                        stderr=subprocess.STDOUT,  # Redirect stderr to stdout
-                        cwd=os.getcwd()
-                    )
+                    # Try with sudo first (required for TUN/TAP on macOS)
+                    # Note: This requires passwordless sudo or running the gateway with sudo
+                    # To enable passwordless sudo: sudo visudo
+                    # Add: your_username ALL=(ALL) NOPASSWD: /usr/local/bin/openvpn
+                    try:
+                        # Use -n flag to prevent sudo from prompting for password
+                        # This will fail if passwordless sudo is not configured
+                        client_proc = subprocess.Popen(
+                            ['sudo', '-n', 'openvpn', '--config', ovpn_file], 
+                            stdout=log_f,
+                            stderr=subprocess.STDOUT,  # Redirect stderr to stdout
+                            cwd=os.getcwd()
+                        )
+                        # Wait a moment to check if process started successfully
+                        time.sleep(0.5)
+                        if client_proc.poll() is None:
+                            print(f"[VPN] ✓ Started OpenVPN client with sudo (PID: {client_proc.pid})")
+                        else:
+                            # Process exited immediately, likely sudo password prompt failed
+                            raise subprocess.CalledProcessError(1, 'sudo', 'Process exited immediately (passwordless sudo not configured?)')
+                    except (subprocess.CalledProcessError, FileNotFoundError, Exception) as sudo_error:
+                        # If sudo fails (password prompt or not configured), try without sudo
+                        # This might work if:
+                        # 1. Running as root
+                        # 2. OpenVPN has proper permissions
+                        print(f"[VPN] ⚠ Sudo failed (may need passwordless sudo), trying without sudo: {sudo_error}")
+                        print(f"[VPN]   To enable passwordless sudo: sudo visudo")
+                        print(f"[VPN]   Add: your_username ALL=(ALL) NOPASSWD: /usr/local/bin/openvpn")
+                        try:
+                            client_proc = subprocess.Popen(
+                                ['openvpn', '--config', ovpn_file], 
+                                stdout=log_f,
+                                stderr=subprocess.STDOUT,
+                                cwd=os.getcwd()
+                            )
+                            time.sleep(0.5)
+                            if client_proc.poll() is None:
+                                print(f"[VPN] Started OpenVPN client without sudo (PID: {client_proc.pid})")
+                            else:
+                                # Even without sudo it failed - likely permission issue
+                                print(f"[VPN] ✗ OpenVPN client failed to start (check log: {log_file})")
+                                raise Exception("OpenVPN client process exited immediately")
+                        except Exception as no_sudo_error:
+                            print(f"[VPN] ✗ Failed to start OpenVPN client: {no_sudo_error}")
+                            raise
                 
                 # Wait longer for TLS handshake and connection
                 time.sleep(8)  # Increased wait time for full connection
                 
                 # Check if process is still running
-                if client_proc.poll() is not None:
-                    # Client process exited, read error from log
+                client_exited = (client_proc.poll() is not None)
+                
+                if client_exited:
+                    # Client process exited, but check status log first - connection might have succeeded
+                    # even if client process failed (e.g., permissions issue but server accepted connection)
+                    print(f"[VPN] OpenVPN client process exited, checking status log to verify connection...")
+                    
+                    # Read error from log for reference
                     error_msg = "Unknown error"
                     try:
                         with open(log_file, 'r') as f:
                             error_msg = f.read()[-500:]  # Last 500 chars
                     except:
                         pass
-                    print(f"[VPN] OpenVPN client failed: {error_msg[:300]}")
-                    # Fall back to mock mode
-                    result = mock_connect(user_email, routes)
-                    result['connection_mode'] = 'mock_fallback'
-                    result['error'] = f"OpenVPN client failed: {error_msg[:100]}"
+                    
+                    # Check if connection actually succeeded in status log
+                    # Wait a bit for status log to update (it updates every 10 seconds)
+                    time.sleep(5)
+                    status_data = read_openvpn_status()
+                    connection_found_in_log = False
+                    vpn_ip_from_log = None
+                    
+                    # Check status log for this user's connection
+                    for client in status_data.get('clients', []):
+                        cn = client.get('common_name', '').strip()
+                        virtual_ip = client.get('virtual_address', '').strip()
+                        cn_normalized = cn.lower().strip()
+                        user_email_normalized = user_email.lower().strip()
+                        
+                        if (cn_normalized == user_email_normalized or 
+                            user_email_normalized in cn_normalized):
+                            if virtual_ip and virtual_ip.startswith('10.8.0.'):
+                                connection_found_in_log = True
+                                vpn_ip_from_log = virtual_ip
+                                print(f"[VPN] ✓ Connection found in status log despite client process exit!")
+                                print(f"[VPN]   IP: {vpn_ip_from_log}, CN: {cn}")
+                                break
+                    
+                    # Also check ipp.txt
+                    if not connection_found_in_log:
+                        ipp_data = read_ipp_file()
+                        for assignment in ipp_data.get('assignments', []):
+                            cn = assignment.get('common_name', '').strip()
+                            ip_addr = assignment.get('ip_address', '').strip()
+                            cn_normalized = cn.lower().strip()
+                            user_email_normalized = user_email.lower().strip()
+                            if (cn_normalized == user_email_normalized or 
+                                user_email_normalized in cn_normalized) and ip_addr and ip_addr.startswith('10.8.0.'):
+                                connection_found_in_log = True
+                                vpn_ip_from_log = ip_addr
+                                print(f"[VPN] ✓ Connection found in ipp.txt despite client process exit!")
+                                print(f"[VPN]   IP: {vpn_ip_from_log}, CN: {cn}")
+                                break
+                    
+                    if connection_found_in_log and vpn_ip_from_log:
+                        # Connection succeeded! Use real OpenVPN connection
+                        print(f"[VPN] ✓ Using real OpenVPN connection (IP: {vpn_ip_from_log})")
+                        result = {
+                            'status': 'connected',
+                            'ip': vpn_ip_from_log,
+                            'routes': routes,
+                            'connection_mode': 'openvpn'
+                        }
+                        # Track IP assignment
+                        assigned_ips[vpn_ip_from_log] = connection_id
+                    else:
+                        # Connection really failed, fall back to mock
+                        print(f"[VPN] OpenVPN client failed: {error_msg[:300]}")
+                        print(f"[VPN]   Note: Client process needs admin privileges for TUN/TAP device")
+                        result = mock_connect(user_email, routes)
+                        result['connection_mode'] = 'mock_fallback'
+                        result['error'] = f"OpenVPN client failed: {error_msg[:100]}"
                 else:
                     print(f"[VPN] OpenVPN client process running (PID: {client_proc.pid})")
                     # Check log for connection status
@@ -1234,12 +1898,49 @@ def connect_vpn():
         # Get the assigned VPN IP
         assigned_vpn_ip = result.get('ip')
         
+        # Final check: Verify no duplicate connection was created while we were setting up
+        # This prevents race conditions where two requests come in simultaneously
+        for conn_id, conn in list(connections.items()):
+            conn_status = conn.get('status', '')
+            is_active = conn_status in ['active', 'connected']
+            if (conn.get('user') == user_email and 
+                is_active and
+                conn_id.startswith(f'vpn-{user_email}-') and
+                conn_id != connection_id):  # Don't match our own connection
+                print(f"[VPN] ⚠ RACE CONDITION DETECTED: Another connection was created: {conn_id}")
+                print(f"[VPN] Aborting this connection attempt to prevent duplicate")
+                # Clean up any files we may have created
+                if is_openvpn_installed():
+                    subprocess.run(['pkill', '-f', connection_id], capture_output=True)
+                    ovpn_file = f'{connection_id}.ovpn'
+                    log_file = f'{connection_id}.log'
+                    for file_path in [ovpn_file, log_file]:
+                        if os.path.exists(file_path):
+                            try:
+                                os.remove(file_path)
+                            except:
+                                pass
+                return jsonify({
+                    'error': 'Another connection was created while setting up this one',
+                    'existing_connection': {
+                        'connection_id': conn_id,
+                        'connected_at': conn.get('connected_at'),
+                        'vpn_ip': conn.get('vpn_ip'),
+                        'status': conn_status
+                    },
+                    'message': 'Please disconnect the existing connection before creating a new one'
+                }), 409
+        
         # Track IP assignment to avoid duplicates
         if assigned_vpn_ip and assigned_vpn_ip.startswith('10.8.0.'):
             if assigned_vpn_ip in assigned_ips and assigned_ips[assigned_vpn_ip] != connection_id:
                 # IP already assigned to another connection - this shouldn't happen, but handle it
                 print(f"[VPN] ⚠ WARNING: IP {assigned_vpn_ip} already assigned to {assigned_ips[assigned_vpn_ip]}")
             assigned_ips[assigned_vpn_ip] = connection_id
+        
+        # Sync assigned_ips with routing table to ensure all active IPs are tracked
+        # This handles cases where IPs were assigned but not properly tracked
+        sync_assigned_ips_from_routing_table()
         
         # Store connection with real IP/location (before VPN) and VPN IP (after VPN)
         # IMPORTANT: Store AFTER checking for duplicates
@@ -1281,41 +1982,263 @@ def connect_vpn():
 def disconnect_vpn():
     data = request.get_json()
     connection_id = data.get('connection_id')
-    if connection_id not in connections:
+    user_email = data.get('user_email')
+    
+    # Find connection by ID or user email
+    conn = None
+    if connection_id and connection_id in connections:
+        conn = connections[connection_id]
+    elif user_email:
+        # Find by user email
+        for conn_id, c in list(connections.items()):
+            if (c.get('user') == user_email and 
+                c.get('status') in ['active', 'connected'] and
+                conn_id.startswith(f'vpn-{user_email}-')):
+                connection_id = conn_id
+                conn = c
+                break
+    
+    if not conn:
         return jsonify({'error': 'Connection not found'}), 404
     
-    # Get VPN IP before deleting connection
-    conn = connections[connection_id]
+    # Get connection details before cleanup
     vpn_ip = conn.get('vpn_ip')
+    user_email_from_conn = conn.get('user')
+    connection_mode = conn.get('connection_mode', 'unknown')
     
-    # Simulate disconnect
-    if is_openvpn_installed():
-        subprocess.run(['pkill', '-f', connection_id], capture_output=True)  # Kill client process
-        # Clean up ovpn file
+    print(f"[VPN] Disconnecting: {connection_id} (user: {user_email_from_conn}, IP: {vpn_ip}, mode: {connection_mode})")
+    
+    # Handle disconnect based on connection mode
+    is_openvpn_connection = connection_mode in ['openvpn']
+    is_mock_connection = connection_mode in ['mock', 'mock_fallback']
+    
+    # Kill OpenVPN client process (only for OpenVPN connections)
+    openvpn_killed = False
+    if is_openvpn_connection and is_openvpn_installed():
         ovpn_file = f'{connection_id}.ovpn'
+        
+        # Try multiple methods to kill the client
+        # Method 1: Kill by connection ID pattern
+        result = subprocess.run(['pkill', '-f', connection_id], capture_output=True)
+        if result.returncode == 0:
+            openvpn_killed = True
+            print(f"[VPN] Killed OpenVPN client process for {connection_id} (method 1)")
+        
+        # Method 2: Kill by config file name
         if os.path.exists(ovpn_file):
-            os.remove(ovpn_file)
+            result = subprocess.run(['pkill', '-f', ovpn_file], capture_output=True)
+            if result.returncode == 0:
+                openvpn_killed = True
+                print(f"[VPN] Killed OpenVPN client process for {connection_id} (method 2)")
+        
+        # Method 3: Try with sudo (in case process was started with sudo)
+        result = subprocess.run(['sudo', 'pkill', '-f', connection_id], capture_output=True)
+        if result.returncode == 0:
+            openvpn_killed = True
+            print(f"[VPN] Killed OpenVPN client process for {connection_id} (method 3: sudo)")
+        
+        if os.path.exists(ovpn_file):
+            result = subprocess.run(['sudo', 'pkill', '-f', ovpn_file], capture_output=True)
+            if result.returncode == 0:
+                openvpn_killed = True
+                print(f"[VPN] Killed OpenVPN client process for {connection_id} (method 4: sudo with file)")
+        
+        # Method 4: Try to find and kill by PID if we can find the process
+        try:
+            # Find process by connection ID or config file
+            ps_result = subprocess.run(['ps', 'aux'], capture_output=True, text=True)
+            for line in ps_result.stdout.split('\n'):
+                if connection_id in line or (os.path.exists(ovpn_file) and ovpn_file in line):
+                    parts = line.split()
+                    if len(parts) > 1:
+                        try:
+                            pid = int(parts[1])
+                            # Try regular kill
+                            subprocess.run(['kill', '-9', str(pid)], capture_output=True)
+                            # Try sudo kill
+                            subprocess.run(['sudo', 'kill', '-9', str(pid)], capture_output=True)
+                            openvpn_killed = True
+                            print(f"[VPN] Killed OpenVPN client process (PID: {pid}) for {connection_id}")
+                        except (ValueError, IndexError):
+                            pass
+        except Exception as e:
+            print(f"[VPN] Warning: Could not find process by PID: {e}")
+        
+        # Wait a moment for process to terminate
+        if openvpn_killed:
+            time.sleep(2)
+        else:
+            print(f"[VPN] ⚠ Warning: Could not kill OpenVPN client process for {connection_id} - it may still be running")
+        
+        # Clean up ovpn file
+        if os.path.exists(ovpn_file):
+            try:
+                os.remove(ovpn_file)
+                print(f"[VPN] Removed config file: {ovpn_file}")
+            except Exception as e:
+                print(f"[VPN] Warning: Could not remove {ovpn_file}: {e}")
+        
         # Clean up log file
         log_file = f'{connection_id}.log'
         if os.path.exists(log_file):
             try:
                 os.remove(log_file)
-                print(f"[VPN] Cleaned up log file: {log_file}")
+                print(f"[VPN] Removed log file: {log_file}")
             except Exception as e:
-                print(f"[VPN] Warning: Could not remove log file {log_file}: {e}")
+                print(f"[VPN] Warning: Could not remove {log_file}: {e}")
+    elif is_mock_connection:
+        print(f"[VPN] Mock connection - skipping OpenVPN cleanup")
     
-    # Remove IP assignment tracking
+    # ALWAYS remove IP assignment tracking (for both OpenVPN and mock)
+    # This ensures IPs are freed even if OpenVPN has errors
+    ip_released = False
     if vpn_ip and vpn_ip in assigned_ips:
         if assigned_ips[vpn_ip] == connection_id:
             del assigned_ips[vpn_ip]
+            ip_released = True
             print(f"[VPN] Released IP assignment: {vpn_ip}")
+        else:
+            print(f"[VPN] ⚠ Warning: IP {vpn_ip} assigned to different connection: {assigned_ips.get(vpn_ip)}")
+            # Still remove it if it's not matching
+            del assigned_ips[vpn_ip]
+            ip_released = True
     
+    # Remove from connections dict
     del connections[connection_id]
-    return jsonify({'status': 'disconnected'})
+    print(f"[VPN] Removed connection from tracking: {connection_id}")
+    
+    # Immediately clean up ipp.txt entry and assigned_ips dict for this disconnected client
+    # Don't wait for status log - clean based on what we know
+    print(f"[VPN] Cleaning up ipp.txt entry and assigned_ips for disconnected client...")
+    
+    # Force remove IP from assigned_ips BEFORE cleanup (to prevent re-adding)
+    if vpn_ip and vpn_ip in assigned_ips:
+        del assigned_ips[vpn_ip]
+        ip_released = True
+        print(f"[VPN] Force-removed IP {vpn_ip} from assigned_ips before cleanup")
+    
+    # Clean up ipp.txt and assigned_ips (this will remove any other stale entries)
+    cleanup_stale_ipp_entries()
+    cleanup_stale_assigned_ips()
+    
+    # Verify IP was released (double-check after cleanup)
+    if vpn_ip and vpn_ip in assigned_ips:
+        print(f"[VPN] ⚠ Warning: IP {vpn_ip} still in assigned_ips after cleanup, forcing removal again...")
+        del assigned_ips[vpn_ip]
+        ip_released = True
+    
+    # For OpenVPN connections: Wait for status log to update and verify cleanup
+    # For mock connections: Skip OpenVPN-specific cleanup
+    if is_openvpn_connection:
+        # Check if OpenVPN server is actually running (may have errors)
+        openvpn_server_running = False
+        try:
+            openvpn_server_running = is_openvpn_running()
+        except Exception as e:
+            print(f"[VPN] ⚠ Error checking OpenVPN server status: {e}")
+        
+        if openvpn_server_running:
+            print(f"[VPN] Waiting for OpenVPN status log to update (routing table will be cleared automatically)...")
+            
+            # Wait for status log update and check multiple times
+            # OpenVPN updates status log every 10 seconds, so we check up to 3 times (30 seconds max)
+            max_checks = 3
+            check_interval = 12  # Wait 12 seconds between checks (10s update + 2s buffer)
+            still_connected = False
+            still_in_routing = False
+            
+            for check_num in range(1, max_checks + 1):
+                print(f"[VPN] Check {check_num}/{max_checks}: Waiting {check_interval}s for status log update...")
+                time.sleep(check_interval)
+                
+                # Force cleanup of stale entries after status log updates
+                cleanup_stale_ipp_entries()
+                
+                # Verify disconnect in status log (both CLIENT_LIST and ROUTING_TABLE)
+                status_data = read_openvpn_status()
+                still_connected = False
+                still_in_routing = False
+                
+                # Check CLIENT_LIST
+                for client in status_data.get('clients', []):
+                    cn = client.get('common_name', '').strip().lower()
+                    client_ip = client.get('virtual_address', '').strip()
+                    if (cn == user_email_from_conn.lower() or 
+                        (vpn_ip and client_ip == vpn_ip)):
+                        still_connected = True
+                        print(f"[VPN]   Client still in CLIENT_LIST: {cn} -> {client_ip}")
+                        break
+                
+                # Check ROUTING_TABLE - OpenVPN automatically removes routes when clients disconnect
+                routing_table = status_data.get('routing_table', [])
+                for route in routing_table:
+                    route_cn = route.get('common_name', '').strip().lower()
+                    route_ip = route.get('virtual_address', '').strip()
+                    if (route_cn == user_email_from_conn.lower() or 
+                        (vpn_ip and route_ip == vpn_ip)):
+                        still_in_routing = True
+                        print(f"[VPN]   Route still in ROUTING_TABLE: {route_cn} -> {route_ip}")
+                        break
+                
+                # If both cleared, we're done
+                if not still_connected and not still_in_routing:
+                    print(f"[VPN] ✓ Disconnect confirmed: Client removed from both CLIENT_LIST and ROUTING_TABLE")
+                    print(f"[VPN]   Routing table now has {len(routing_table)} route(s)")
+                    break
+                elif check_num < max_checks:
+                    print(f"[VPN]   Still appears in status log, will check again...")
+                    print(f"[VPN]   CLIENT_LIST: {'present' if still_connected else 'cleared'}, ROUTING_TABLE: {'present' if still_in_routing else 'cleared'}")
+            
+            # Final verification
+            if still_connected or still_in_routing:
+                print(f"[VPN] ⚠ Warning: Client/route still appears after {max_checks} checks")
+                print(f"[VPN]   CLIENT_LIST: {'present' if still_connected else 'cleared'}")
+                print(f"[VPN]   ROUTING_TABLE: {'present' if still_in_routing else 'cleared'}")
+                print(f"[VPN]   OpenVPN will remove on next status log update (every 10s)")
+                print(f"[VPN]   Backend has already released IP {vpn_ip} and cleaned up tracking")
+            
+            # Final cleanup to ensure ipp.txt is clean
+            cleanup_stale_ipp_entries()
+            cleanup_stale_assigned_ips()
+            
+            # Log final state
+            final_status = read_openvpn_status()
+            print(f"[VPN] Final state after disconnect:")
+            print(f"  - CLIENT_LIST: {len(final_status.get('clients', []))} client(s)")
+            print(f"  - ROUTING_TABLE: {len(final_status.get('routing_table', []))} route(s)")
+            print(f"  - ipp.txt: {len(read_ipp_file().get('assignments', []))} assignment(s)")
+            print(f"  - assigned_ips: {len(assigned_ips)} IP(s)")
+        else:
+            # OpenVPN server not running or has errors - manual cleanup
+            print(f"[VPN] ⚠ OpenVPN server not running or has errors - performing manual cleanup")
+            print(f"[VPN]   IP {vpn_ip} has been released from tracking")
+            print(f"[VPN]   Connection removed from backend tracking")
+            print(f"[VPN]   ipp.txt cleaned (removed stale entry for {user_email_from_conn})")
+            
+            # Try to manually remove from ipp.txt if it exists
+            try:
+                cleanup_stale_ipp_entries()
+                print(f"[VPN] ✓ Manual cleanup completed")
+            except Exception as e:
+                print(f"[VPN] ⚠ Error during manual cleanup: {e}")
+    elif is_mock_connection:
+        print(f"[VPN] Mock connection disconnected - IP {vpn_ip} released, no OpenVPN cleanup needed")
+    
+    return jsonify({
+        'status': 'disconnected',
+        'connection_id': connection_id,
+        'vpn_ip': vpn_ip,
+        'connection_mode': connection_mode,
+        'message': 'Disconnected successfully',
+        'ip_released': vpn_ip not in assigned_ips if vpn_ip else True
+    })
 
 @app.route('/api/vpn/status', methods=['GET', 'POST'])
 def vpn_status():
     """Get VPN status. Can use GET with query param or POST with JSON body."""
+    # Sync connection status with OpenVPN status log before checking
+    sync_connection_status_with_openvpn()
+    
     if request.method == 'GET':
         connection_id = request.args.get('connection_id')
         user_email = request.args.get('user_email')
@@ -1360,6 +2283,15 @@ def vpn_status():
             'connected_at': conn.get('connected_at'),
             'terminated_at': conn.get('terminated_at')
         }), 403
+    
+    # Check if connection was disconnected
+    if conn.get('status') == 'disconnected':
+        return jsonify({
+            'status': 'disconnected',
+            'reason': conn.get('disconnect_reason', 'Connection not found in OpenVPN status log'),
+            'connected_at': conn.get('connected_at'),
+            'disconnected_at': conn.get('disconnected_at')
+        })
     
     # Check if still active (simplified; in prod, poll OpenVPN status.log)
     conn['uptime'] = (datetime.now() - datetime.fromisoformat(conn['connected_at'])).total_seconds()
@@ -1470,6 +2402,17 @@ def get_continuous_auth_log():
 @app.route('/api/vpn/openvpn-status', methods=['GET'])
 def get_openvpn_status():
     """Get detailed OpenVPN status from status log file."""
+    # Sync connection status before reading status log to ensure accuracy
+    sync_connection_status_with_openvpn()
+    
+    # Sync assigned_ips FROM routing table to ensure all active IPs are tracked
+    # (only adds IPs if there's an active backend connection)
+    sync_assigned_ips_from_routing_table()
+    
+    # Clean up stale assigned IPs (removes IPs without active backend connections)
+    cleanup_stale_assigned_ips()
+    
+    # Read fresh data from files (always read latest, no caching)
     status_data = read_openvpn_status()
     ipp_data = read_ipp_file()
     
@@ -1478,7 +2421,7 @@ def get_openvpn_status():
     if not os.path.exists('openvpn-status.log'):
         issues.append('Status log file does not exist')
     elif os.path.getsize('openvpn-status.log') == 0:
-        issues.append('Status log file is empty')
+        issues.append('Status log file is empty (no active connections)')
     
     if not os.path.exists('ipp.txt'):
         issues.append('IP pool file does not exist')
@@ -1495,8 +2438,78 @@ def get_openvpn_status():
     if no_ip_count > 0:
         issues.append(f'{no_ip_count} client(s) without Virtual IP assigned')
     
+    # Check for stale entries in ipp.txt
+    active_cns = {c.get('common_name', '').lower() for c in status_data.get('clients', [])}
+    active_ips = {c.get('virtual_address', '').strip() for c in status_data.get('clients', [])}
+    stale_entries = []
+    for assignment in ipp_data.get('assignments', []):
+        cn = assignment.get('common_name', '').strip().lower()
+        ip = assignment.get('ip_address', '').strip()
+        if cn not in active_cns and ip not in active_ips:
+            stale_entries.append(f"{assignment.get('common_name', '')} -> {ip}")
+    
+    if stale_entries:
+        issues.append(f'{len(stale_entries)} stale entry(ies) in ipp.txt (not in active connections)')
+    
+    # Check for routing table inconsistencies (routes without corresponding clients)
+    routing_table = status_data.get('routing_table', [])
+    clients = status_data.get('clients', [])
+    client_ips = {c.get('virtual_address', '').strip() for c in clients if c.get('virtual_address')}
+    orphaned_routes = []
+    for route in routing_table:
+        route_ip = route.get('virtual_address', '').strip()
+        route_cn = route.get('common_name', '').strip().lower()
+        if route_ip and route_ip not in client_ips:
+            # Route exists but no corresponding client - this is an inconsistency
+            orphaned_routes.append(f"{route_cn} -> {route_ip}")
+    
+    # Check for routing table inconsistencies
+    if orphaned_routes:
+        issues.append(f'{len(orphaned_routes)} orphaned route(s) in ROUTING_TABLE (no corresponding client in CLIENT_LIST)')
+        issues.append('This usually means OpenVPN is in the process of removing the route - it will be cleared on next status log update')
+    
+    # Check if routing table count matches client count (should match for active connections)
+    routing_count = len(status_data.get('routing_table', []))
+    client_count = len(status_data.get('clients', []))
+    if routing_count != client_count:
+        issues.append(f'ROUTING_TABLE has {routing_count} route(s) but CLIENT_LIST has {client_count} client(s) - mismatch indicates routes being cleaned up')
+    
+    # Filter routing table and clients to only show those with active backend connections
+    # This ensures disconnected clients don't appear even if OpenVPN status log is stale
+    active_backend_ips = set()
+    active_backend_cns = set()
+    for conn_id, conn in connections.items():
+        if conn.get('status') in ['active', 'connected']:
+            vpn_ip = conn.get('vpn_ip', '').strip()
+            user_email = conn.get('user', '').lower().strip()
+            if vpn_ip:
+                active_backend_ips.add(vpn_ip)
+            if user_email:
+                active_backend_cns.add(user_email)
+    
+    # Filter clients to only show those with active backend connections
+    filtered_clients = []
+    for client in clients:
+        client_ip = client.get('virtual_address', '').strip()
+        client_cn = client.get('common_name', '').strip().lower()
+        if client_ip in active_backend_ips or client_cn in active_backend_cns:
+            filtered_clients.append(client)
+    
+    # Filter routing table to only show routes with active backend connections
+    filtered_routing_table = []
+    for route in routing_table:
+        route_ip = route.get('virtual_address', '').strip()
+        route_cn = route.get('common_name', '').strip().lower()
+        if route_ip in active_backend_ips or route_cn in active_backend_cns:
+            filtered_routing_table.append(route)
+    
+    # Create filtered status_data for response
+    filtered_status_data = status_data.copy()
+    filtered_status_data['clients'] = filtered_clients
+    filtered_status_data['routing_table'] = filtered_routing_table
+    
     return jsonify({
-        'status_log': status_data,
+        'status_log': filtered_status_data,  # Return filtered data
         'ip_pool': ipp_data,
         'status_log_file': 'openvpn-status.log',
         'ipp_file': 'ipp.txt',
@@ -1505,9 +2518,49 @@ def get_openvpn_status():
         'status_log_size': os.path.getsize('openvpn-status.log') if os.path.exists('openvpn-status.log') else 0,
         'ipp_file_size': os.path.getsize('ipp.txt') if os.path.exists('ipp.txt') else 0,
         'issues': issues,
-        'clients_count': len(status_data.get('clients', [])),
-        'ipp_assignments_count': len(ipp_data.get('assignments', []))
+        'clients_count': len(filtered_clients),  # Use filtered count
+        'routing_table_count': len(filtered_routing_table),  # Use filtered count
+        'ipp_assignments_count': len(ipp_data.get('assignments', [])),
+        'stale_ipp_entries': stale_entries,
+        'orphaned_routes': orphaned_routes,
+        'routing_table': filtered_routing_table,  # Return filtered routing table
+        'routing_table_sync': {
+            'clients_count': len(filtered_clients),
+            'routes_count': len(filtered_routing_table),
+            'matches': len(filtered_routing_table) == len(filtered_clients),
+            'orphaned_routes': orphaned_routes,
+            'filtered': True,  # Indicate that filtering was applied
+            'original_clients_count': client_count,
+            'original_routes_count': routing_count
+        },
+        'file_maintenance': {
+            'status_log_behavior': 'Rewritten every 10 seconds, shows only active connections, empty when no clients connected',
+            'ipp_file_behavior': 'Persists across restarts, can accumulate stale entries, cleaned automatically',
+            'routing_table_behavior': 'Automatically updated by OpenVPN when clients connect/disconnect, reflects current active routes. Filtered to only show clients with active backend connections.'
+        }
     })
+
+@app.route('/api/vpn/cleanup-ipp', methods=['POST'])
+def cleanup_ipp_endpoint():
+    """Manually clean up stale entries in ipp.txt."""
+    try:
+        before_count = len(read_ipp_file().get('assignments', []))
+        cleanup_stale_ipp_entries()
+        after_count = len(read_ipp_file().get('assignments', []))
+        removed = before_count - after_count
+        
+        return jsonify({
+            'success': True,
+            'message': f'Cleaned ipp.txt: removed {removed} stale entries',
+            'before_count': before_count,
+            'after_count': after_count,
+            'removed_count': removed
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 @app.route('/api/vpn/diagnose-files', methods=['GET'])
 def diagnose_files():
@@ -1590,14 +2643,68 @@ def diagnose_files():
 
 @app.route('/api/vpn/ip-assignments', methods=['GET'])
 def get_ip_assignments():
-    """Get current IP assignment tracking."""
+    """Get current IP assignment tracking.
+    Syncs with routing table to ensure accuracy."""
+    # Sync connection status before returning data
+    sync_connection_status_with_openvpn()
+    
+    # Sync assigned_ips FROM routing table to ensure all active IPs are tracked
+    sync_assigned_ips_from_routing_table()
+    
+    # Clean up stale entries
+    cleanup_stale_assigned_ips()
+    
+    # Get routing table for reference
+    status_data = read_openvpn_status()
+    routing_table = status_data.get('routing_table', [])
+    clients = status_data.get('clients', [])
+    
+    # Filter routing table and clients to only show those with active backend connections
+    active_backend_ips = set()
+    active_backend_cns = set()
+    for conn_id, conn in connections.items():
+        if conn.get('status') in ['active', 'connected']:
+            vpn_ip = conn.get('vpn_ip', '').strip()
+            user_email = conn.get('user', '').lower().strip()
+            if vpn_ip:
+                active_backend_ips.add(vpn_ip)
+            if user_email:
+                active_backend_cns.add(user_email)
+    
+    # Filter clients
+    filtered_clients = []
+    for client in clients:
+        client_ip = client.get('virtual_address', '').strip()
+        client_cn = client.get('common_name', '').strip().lower()
+        if client_ip in active_backend_ips or client_cn in active_backend_cns:
+            filtered_clients.append(client)
+    
+    # Filter routing table
+    filtered_routing_table = []
+    for route in routing_table:
+        route_ip = route.get('virtual_address', '').strip()
+        route_cn = route.get('common_name', '').strip().lower()
+        if route_ip in active_backend_ips or route_cn in active_backend_cns:
+            filtered_routing_table.append(route)
+    
     return jsonify({
         'assigned_ips': assigned_ips,
         'total_assigned': len(assigned_ips),
         'ip_counter': ip_counter,
         'active_connections': len([c for c in connections.values() if c.get('status') in ['active', 'connected']]),
         'ipp_file_content': read_ipp_file(),
-        'status_log_clients': read_openvpn_status().get('clients', [])
+        'status_log_clients': filtered_clients,  # Return filtered clients
+        'routing_table': filtered_routing_table,  # Return filtered routing table
+        'routing_table_count': len(filtered_routing_table),
+        'sync_info': {
+            'assigned_ips_count': len(assigned_ips),
+            'routing_table_count': len(filtered_routing_table),
+            'client_list_count': len(filtered_clients),
+            'in_sync': len(assigned_ips) == len(filtered_routing_table),
+            'filtered': True,
+            'original_routing_table_count': len(routing_table),
+            'original_client_list_count': len(clients)
+        }
     })
 
 @app.route('/api/vpn/verify-openvpn', methods=['GET'])
@@ -1711,20 +2818,37 @@ def monitor_openvpn_files():
     """Monitor OpenVPN status files and log updates."""
     last_status_size = 0
     last_ipp_size = 0
+    last_client_count = 0
     
     while True:
-        time.sleep(30)  # Check every 30 seconds
+        time.sleep(15)  # Check every 15 seconds (more frequent for better sync)
         try:
             if os.path.exists('openvpn-status.log'):
                 current_size = os.path.getsize('openvpn-status.log')
-                if current_size != last_status_size:
-                    print(f"[{datetime.now().isoformat()}] OpenVPN status log updated: {current_size} bytes (was {last_status_size})")
+                status_data = read_openvpn_status()
+                client_count = len(status_data.get('clients', []))
+                
+                # Check if status log changed (size or client count)
+                if current_size != last_status_size or client_count != last_client_count:
+                    print(f"[{datetime.now().isoformat()}] OpenVPN status log updated: {current_size} bytes, {client_count} client(s)")
                     last_status_size = current_size
-                    # Read and log client count
-                    status_data = read_openvpn_status()
-                    client_count = len(status_data.get('clients', []))
+                    last_client_count = client_count
+                    
                     if client_count > 0:
                         print(f"  Active clients: {client_count}")
+                        for client in status_data.get('clients', []):
+                            cn = client.get('common_name', '')
+                            ip = client.get('virtual_address', '')
+                            print(f"    - {cn} -> {ip}")
+                    else:
+                        print(f"  No active clients")
+                    
+                    # Sync connection status when status log changes
+                    sync_connection_status_with_openvpn()
+                    # Clean up stale ipp.txt entries when status changes
+                    cleanup_stale_ipp_entries()
+                    # Clean up stale assigned_ips when status changes
+                    cleanup_stale_assigned_ips()
             
             if os.path.exists('ipp.txt'):
                 current_size = os.path.getsize('ipp.txt')
@@ -1736,6 +2860,9 @@ def monitor_openvpn_files():
                     assignment_count = len(ipp_data.get('assignments', []))
                     if assignment_count > 0:
                         print(f"  IP assignments: {assignment_count}")
+                        # Clean up stale entries when ipp.txt changes
+                        cleanup_stale_ipp_entries()
+                        cleanup_stale_assigned_ips()
         except Exception as e:
             print(f"Error monitoring OpenVPN files: {e}")
 
