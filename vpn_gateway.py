@@ -206,36 +206,18 @@ def ensure_status_files():
 
 def cleanup_stale_ipp_entries():
     """
-    Clean up stale entries in ipp.txt that don't have active connections.
-    ipp.txt persists across restarts, but can accumulate stale entries.
-    This function removes entries for clients that are not currently connected.
-    Also cleans up assigned_ips dict.
+    Clean up stale entries in ipp.txt that don't have active backend connections.
+    
+    CRITICAL: Backend dicts (connections, assigned_ips) are the SINGLE SOURCE OF TRUTH.
+    We only use backend connections to determine what's active - OpenVPN files are for reference only.
     """
-    # First clean up assigned_ips dict
+    # First clean up assigned_ips dict based on backend connections
     cleanup_stale_assigned_ips()
     
     if not os.path.exists('ipp.txt'):
         return
     
-    # Get active connections from status log (if OpenVPN is working)
-    active_clients = {}
-    active_ips_from_log = set()
-    try:
-        status_data = read_openvpn_status()
-        for client in status_data.get('clients', []):
-            cn = client.get('common_name', '').strip().lower()
-            vpn_ip = client.get('virtual_address', '').strip()
-            if cn and vpn_ip:
-                active_clients[cn] = vpn_ip
-                active_clients[vpn_ip] = cn  # Also index by IP
-                active_ips_from_log.add(vpn_ip)
-    except Exception as e:
-        print(f"[VPN] ⚠ Error reading OpenVPN status log (may have errors): {e}")
-        # Continue with backend-only check if OpenVPN status log fails
-    
-    # Also check backend connections dict for active connections
-    # This catches disconnects immediately even before status log updates
-    # This is especially important when OpenVPN has errors
+    # Get active connections from backend dict ONLY (single source of truth)
     backend_active_ips = set()
     backend_active_cns = set()
     for conn_id, conn in connections.items():
@@ -247,11 +229,6 @@ def cleanup_stale_ipp_entries():
             if ip:
                 backend_active_ips.add(ip)
     
-    # Combine all sources - keep entry if active in status log OR backend
-    # NOTE: We don't use assigned_ips here to avoid circular dependency
-    all_active_cns = set(active_clients.keys()) | backend_active_cns
-    all_active_ips = active_ips_from_log | backend_active_ips
-    
     # Read current ipp.txt
     ipp_data = read_ipp_file()
     valid_entries = []
@@ -261,14 +238,13 @@ def cleanup_stale_ipp_entries():
         cn = assignment.get('common_name', '').strip().lower()
         ip_addr = assignment.get('ip_address', '').strip()
         
-        # Keep entry if:
-        # 1. Client is active in status log, OR
-        # 2. Client is active in backend connections
-        if (cn in all_active_cns or ip_addr in all_active_ips):
+        # Keep entry ONLY if it's in active backend connections
+        # Backend dict is single source of truth - ignore OpenVPN files
+        if (cn in backend_active_cns or ip_addr in backend_active_ips):
             valid_entries.append(f"{assignment.get('common_name', '')},{ip_addr},")
         else:
             stale_count += 1
-            print(f"[VPN] Removing stale ipp.txt entry: {cn} -> {ip_addr} (not in status log or backend connections)")
+            print(f"[VPN] Removing stale ipp.txt entry: {cn} -> {ip_addr} (not in backend connections)")
     
     # Write back only valid entries
     if stale_count > 0 or len(valid_entries) != len(ipp_data.get('assignments', [])):
@@ -276,7 +252,7 @@ def cleanup_stale_ipp_entries():
             with open('ipp.txt', 'w') as f:
                 for entry in valid_entries:
                     f.write(entry + '\n')
-            print(f"[VPN] Cleaned ipp.txt: removed {stale_count} stale entries, kept {len(valid_entries)} active entries")
+            print(f"[VPN] Cleaned ipp.txt: removed {stale_count} stale entries, kept {len(valid_entries)} active entries (based on backend dicts)")
         except Exception as e:
             print(f"[VPN] Error cleaning ipp.txt: {e}")
 
@@ -315,29 +291,60 @@ def sync_assigned_ips_from_routing_table():
                 client_ip_to_cn[client_ip] = client_cn
         
         # For each IP in routing table, ensure it's in assigned_ips ONLY if there's an active backend connection
+        # CRITICAL: Only sync IPs that match EXACTLY - don't assign new IPs to existing connections
         added_count = 0
         skipped_count = 0
         for route_ip, route_cn in routing_ip_to_cn.items():
             if route_ip not in assigned_ips:
                 # Try to find matching ACTIVE connection ID in backend
+                # IMPORTANT: Match by IP first (most accurate), then by CN if no IP match
                 matching_conn_id = None
+                
+                # First pass: Try to match by IP (most accurate - connection already has this IP)
                 for conn_id, conn in connections.items():
-                    if (conn.get('status') in ['active', 'connected'] and
-                        (conn.get('user', '').lower().strip() == route_cn or 
-                         conn.get('vpn_ip', '').strip() == route_ip)):
-                        matching_conn_id = conn_id
-                        break
+                    if conn.get('status') in ['active', 'connected']:
+                        conn_vpn_ip = conn.get('vpn_ip', '').strip()
+                        if conn_vpn_ip == route_ip:
+                            # Perfect match - connection already has this IP
+                            matching_conn_id = conn_id
+                            break
+                
+                # Second pass: If no IP match, try to match by CN (for connections without IP yet)
+                # But only match connections that don't have an IP assigned yet
+                if not matching_conn_id:
+                    for conn_id, conn in connections.items():
+                        if conn.get('status') in ['active', 'connected']:
+                            conn_user = conn.get('user', '').lower().strip()
+                            conn_vpn_ip = conn.get('vpn_ip', '').strip()
+                            
+                            # Check if this connection is already in assigned_ips with a different IP
+                            already_assigned_ip = None
+                            for ip, assigned_conn_id in assigned_ips.items():
+                                if assigned_conn_id == conn_id:
+                                    already_assigned_ip = ip
+                                    break
+                            
+                            # Match by CN only if:
+                            # 1. CN matches AND connection doesn't have a VPN IP yet (new connection), AND
+                            # 2. This connection is not already in assigned_ips with a different IP
+                            if conn_user == route_cn:
+                                if not conn_vpn_ip and not already_assigned_ip:
+                                    # Connection exists but no IP assigned yet - safe to assign
+                                    matching_conn_id = conn_id
+                                    break
+                                # If conn_vpn_ip exists or already_assigned_ip exists, skip this connection
+                                # (it already has an IP, don't reassign)
                 
                 if matching_conn_id:
-                    # Only add if there's an active backend connection
+                    # Only add if there's an active backend connection AND it's a safe match
                     assigned_ips[route_ip] = matching_conn_id
                     added_count += 1
                     print(f"[VPN] Synced IP {route_ip} from routing table to assigned_ips (CN: {route_cn}, conn: {matching_conn_id})")
                 else:
                     # Don't add IPs from routing table if there's no active backend connection
-                    # This prevents re-adding IPs that were just disconnected
+                    # OR if the IP would be assigned to a connection that already has a different IP
                     skipped_count += 1
-                    print(f"[VPN] Skipped syncing IP {route_ip} from routing table (CN: {route_cn}) - no active backend connection found")
+                    print(f"[VPN] Skipped syncing IP {route_ip} from routing table (CN: {route_cn}) - no matching active backend connection found")
         
         if added_count > 0:
             print(f"[VPN] Synced {added_count} IP(s) from routing table to assigned_ips")
@@ -346,24 +353,68 @@ def sync_assigned_ips_from_routing_table():
     except Exception as e:
         print(f"[VPN] ⚠ Error syncing assigned_ips from routing table: {e}")
 
+def enforce_single_connection_per_user():
+    """
+    Safety function: Ensure each user has only ONE active connection.
+    Removes all but the newest active connection for each user.
+    
+    This is a safety net to prevent duplicate connections from persisting.
+    Backend dict is single source of truth - one connection per user.
+    """
+    users_with_multiple_connections = {}
+    
+    # Find users with multiple active connections
+    for conn_id, conn in connections.items():
+        if conn.get('status') in ['active', 'connected']:
+            user_email = conn.get('user', '').lower().strip()
+            if user_email:
+                if user_email not in users_with_multiple_connections:
+                    users_with_multiple_connections[user_email] = []
+                users_with_multiple_connections[user_email].append({
+                    'conn_id': conn_id,
+                    'connected_at': conn.get('connected_at', ''),
+                    'vpn_ip': conn.get('vpn_ip', '')
+                })
+    
+    # For each user with multiple connections, keep only the newest one
+    removed_count = 0
+    for user_email, conn_list in users_with_multiple_connections.items():
+        if len(conn_list) > 1:
+            # Sort by connected_at (newest first)
+            conn_list.sort(key=lambda x: x['connected_at'], reverse=True)
+            # Keep the newest, remove the rest
+            for conn_info in conn_list[1:]:
+                conn_id = conn_info['conn_id']
+                vpn_ip = conn_info['vpn_ip']
+                
+                # Free IP
+                if vpn_ip and vpn_ip in assigned_ips:
+                    del assigned_ips[vpn_ip]
+                
+                # Remove connection
+                if conn_id in connections:
+                    del connections[conn_id]
+                    removed_count += 1
+                    print(f"[VPN] ⚠ SAFETY: Removed duplicate connection {conn_id} for user {user_email} (kept newest: {conn_list[0]['conn_id']})")
+    
+    if removed_count > 0:
+        print(f"[VPN] ⚠ SAFETY: Removed {removed_count} duplicate connection(s) to enforce single connection per user")
+    
+    return removed_count
+
 def cleanup_stale_assigned_ips():
     """
     Clean up stale entries in assigned_ips dictionary.
     Removes IPs that are not associated with active backend connections.
     
-    IMPORTANT: An IP is considered stale if:
-    1. It's NOT in active backend connections, AND
-    2. It's NOT in CLIENT_LIST (which is more reliable than routing table during disconnects)
+    CRITICAL: Backend dicts (assigned_ips, connections) are the SINGLE SOURCE OF TRUTH.
+    We do NOT sync from OpenVPN files - they are for reference/debugging only.
     
-    We do NOT rely solely on routing table because it can lag behind during disconnects
-    (OpenVPN updates routing table every 10 seconds, but CLIENT_LIST updates immediately).
+    An IP is considered stale if it's NOT in active backend connections.
     """
     global assigned_ips
     
-    # First, sync FROM routing table to add any missing IPs (only if active backend connection exists)
-    sync_assigned_ips_from_routing_table()
-    
-    # Get active connections from backend
+    # Get active connections from backend (single source of truth)
     active_connection_ids = set()
     active_ips_from_backend = set()
     for conn_id, conn in connections.items():
@@ -373,61 +424,21 @@ def cleanup_stale_assigned_ips():
             if vpn_ip:
                 active_ips_from_backend.add(vpn_ip)
     
-    # Get active IPs from OpenVPN status log (CLIENT_LIST is more reliable than ROUTING_TABLE)
-    active_ips_from_log = set()
-    active_ips_from_routing = set()
-    routing_ips_with_backend_conn = set()  # IPs in routing table that have backend connections
-    try:
-        status_data = read_openvpn_status()
-        # Check CLIENT_LIST (most reliable - updates immediately on disconnect)
-        for client in status_data.get('clients', []):
-            vpn_ip = client.get('virtual_address', '').strip()
-            if vpn_ip and vpn_ip.startswith('10.8.0.'):
-                active_ips_from_log.add(vpn_ip)
-        
-        # Check ROUTING_TABLE - but only trust it if there's also a backend connection
-        for route in status_data.get('routing_table', []):
-            route_ip = route.get('virtual_address', '').strip()
-            route_cn = route.get('common_name', '').strip().lower()
-            if route_ip and route_ip.startswith('10.8.0.'):
-                active_ips_from_routing.add(route_ip)
-                # Check if this IP has an active backend connection
-                has_backend_conn = False
-                for conn_id, conn in connections.items():
-                    if (conn.get('status') in ['active', 'connected'] and
-                        (conn.get('user', '').lower().strip() == route_cn or 
-                         conn.get('vpn_ip', '').strip() == route_ip)):
-                        has_backend_conn = True
-                        routing_ips_with_backend_conn.add(route_ip)
-                        break
-    except Exception as e:
-        print(f"[VPN] ⚠ Error reading status log for IP cleanup: {e}")
-    
-    # IPs to keep: must be in backend connections OR in CLIENT_LIST OR in routing table WITH backend connection
-    # We prioritize backend connections and CLIENT_LIST over routing table
-    ips_to_keep = active_ips_from_backend | active_ips_from_log | routing_ips_with_backend_conn
-    
-    # Remove stale IPs from assigned_ips
+    # Remove stale IPs from assigned_ips - only keep IPs that are in active backend connections
     stale_ips = []
     for ip, conn_id in list(assigned_ips.items()):
-        # Keep IP if:
-        # 1. It's in active backend connections (by IP or connection_id), OR
-        # 2. It's in CLIENT_LIST (most reliable), OR
-        # 3. It's in routing table AND has an active backend connection
-        if (ip in ips_to_keep or 
+        # Keep IP ONLY if it's in active backend connections
+        if (ip in active_ips_from_backend or 
             conn_id in active_connection_ids):
             continue
         else:
             stale_ips.append(ip)
             del assigned_ips[ip]
-            print(f"[VPN] Removed stale IP from assigned_ips: {ip} (was assigned to {conn_id}, not in active backend connections or CLIENT_LIST)")
+            print(f"[VPN] Removed stale IP from assigned_ips: {ip} (was assigned to {conn_id}, not in active backend connections)")
     
     if stale_ips:
         print(f"[VPN] Cleaned assigned_ips: removed {len(stale_ips)} stale IP(s), kept {len(assigned_ips)} active IP(s)")
-        print(f"[VPN]   Active IPs from backend: {sorted(active_ips_from_backend)}")
-        print(f"[VPN]   Active IPs from CLIENT_LIST: {sorted(active_ips_from_log)}")
-        print(f"[VPN]   Active IPs from routing table (with backend conn): {sorted(routing_ips_with_backend_conn)}")
-        print(f"[VPN]   Total routing table IPs: {sorted(active_ips_from_routing)}")
+        print(f"[VPN]   Active IPs from backend (single source of truth): {sorted(active_ips_from_backend)}")
 
 def sync_ip_assignments_from_openvpn():
     """Sync IP assignments from OpenVPN status log and ipp.txt on startup.
@@ -1246,37 +1257,28 @@ def format_routes_for_openvpn(routes):
     return routes_config
 
 def get_next_available_ip():
-    """Get the first available IP in the 10.8.0.x range (2-254).
+    """Get the lowest available IP in the 10.8.0.x range (2-254).
     
-    SIMPLE APPROACH:
-    - assigned_ips dict is the source of truth for IP assignments
+    SINGLE SOURCE OF TRUTH APPROACH:
+    - assigned_ips dict is the ONLY source of truth for IP assignments
     - Always start checking from 10.8.0.2 and find the FIRST free IP
-    - On disconnect, IP is removed from assigned_ips, making it available again
+    - On disconnect, IP is removed from assigned_ips immediately, making it available again
     - This ensures freed IPs are reused immediately (e.g., disconnect 10.8.0.2, reconnect gets 10.8.0.2)
     
     Returns:
-        str: First available IP address (e.g., '10.8.0.2') or None if all IPs are taken
+        str: Lowest available IP address (e.g., '10.8.0.2') or None if all IPs are taken
     """
-    global ip_counter
-    
-    # Get all IPs currently assigned (assigned_ips dict is source of truth)
+    # assigned_ips dict is the single source of truth
     used_ips = set(assigned_ips.keys())
-    
-    # Also check active backend connections (in case assigned_ips is out of sync)
-    for conn_id, conn in connections.items():
-        if conn.get('status') in ['active', 'connected']:
-            vpn_ip = conn.get('vpn_ip', '').strip()
-            if vpn_ip and vpn_ip.startswith('10.8.0.'):
-                used_ips.add(vpn_ip)
     
     print(f"[VPN] Checking IP availability: {len(used_ips)} IP(s) currently assigned: {sorted(used_ips)}")
     
-    # ALWAYS start from 2 and find the FIRST free IP
+    # ALWAYS start from 2 and find the FIRST (lowest) free IP
     # This ensures we reuse freed IPs immediately (e.g., if 10.8.0.2 is freed, it will be reused)
     for ip_num in range(2, 255):  # 2 to 254
         ip = f'10.8.0.{ip_num}'
         if ip not in used_ips:
-            print(f"[VPN] ✓ Found first available IP: {ip} ({len(used_ips)} IPs currently assigned)")
+            print(f"[VPN] ✓ Found lowest available IP: {ip} ({len(used_ips)} IPs currently assigned)")
             return ip
     
     # If all IPs are taken, return None
@@ -1309,10 +1311,66 @@ def find_ip_by_real_address(real_address, status_data, ipp_data):
     # Note: ipp.txt uses CN, not real_address, so this is a fallback
     return None
 
+def cleanup_old_user_files(user_email, keep_connection_id=None):
+    """Clean up old log and ovpn files for a user.
+    
+    Keeps only files for active connections (from backend dict).
+    If keep_connection_id is provided, keeps that file even if connection is inactive.
+    
+    Args:
+        user_email: User email to clean up files for
+        keep_connection_id: Optional connection ID to keep (current connection being created)
+    """
+    # Get active connection IDs for this user from backend dict (single source of truth)
+    active_conn_ids = set()
+    for conn_id, conn in connections.items():
+        if (conn.get('user') == user_email and 
+            conn.get('status') in ['active', 'connected'] and
+            conn_id.startswith(f'vpn-{user_email}-')):
+            active_conn_ids.add(conn_id)
+    
+    # Also keep the current connection being created
+    if keep_connection_id:
+        active_conn_ids.add(keep_connection_id)
+    
+    # Find all log/ovpn files for this user
+    import glob
+    pattern = f'vpn-{user_email}-*.log'
+    log_files = glob.glob(pattern)
+    pattern = f'vpn-{user_email}-*.ovpn'
+    ovpn_files = glob.glob(pattern)
+    
+    cleaned_count = 0
+    for file_path in log_files + ovpn_files:
+        # Extract connection ID from filename (e.g., "vpn-alice@company.com-1234567.log" -> "vpn-alice@company.com-1234567")
+        base_name = os.path.basename(file_path)
+        # Remove extension (.log or .ovpn)
+        file_conn_id = base_name.rsplit('.', 1)[0]
+        
+        # Delete if not in active connections
+        if file_conn_id not in active_conn_ids:
+            try:
+                os.remove(file_path)
+                cleaned_count += 1
+                print(f"[VPN] Cleaned up old file: {file_path}")
+            except Exception as e:
+                print(f"[VPN] Warning: Could not delete {file_path}: {e}")
+    
+    if cleaned_count > 0:
+        print(f"[VPN] Cleaned up {cleaned_count} old file(s) for user {user_email}")
+    return cleaned_count
+
 def mock_connect(user_email, routes):
-    """Mock tunnel for preview (simulates 10.8.0.x assignment)"""
+    """Mock tunnel for preview (simulates 10.8.0.x assignment)
+    
+    IMPORTANT: This function should NOT assign IPs to assigned_ips dict.
+    IP assignment is handled by the caller (connect_vpn) to ensure proper tracking.
+    """
     time.sleep(1)  # Simulate connection time
-    ip = get_next_available_ip() or '10.8.0.2'  # Fallback only for mock
+    # Get next available IP - but don't assign it here, caller will do it
+    ip = get_next_available_ip()
+    if not ip:
+        raise Exception("No available IPs to assign")
     return {'status': 'connected', 'ip': ip, 'routes': routes}
 
 def get_client_ip():
@@ -1342,12 +1400,13 @@ def connect_vpn():
     device = data.get('device', {})
     
     try:
-        # Sync connection status with OpenVPN BEFORE assigning IPs
-        # This ensures we have the latest routing table and know which IPs are truly free
-        sync_connection_status_with_openvpn()
+        # Backend dicts (assigned_ips, connections) are single source of truth
+        # OpenVPN log files are just for reference/debugging, not for driving logic
         
-        # Clean up stale assigned IPs BEFORE assigning new IPs
-        # This ensures freed IPs are available for reuse
+        # Safety: Enforce single connection per user (remove any duplicates)
+        enforce_single_connection_per_user()
+        
+        # Clean up stale assigned IPs based on backend connections only
         cleanup_stale_assigned_ips()
         
         # Decode and validate JWT
@@ -1358,20 +1417,28 @@ def connect_vpn():
         if clearance < 1:
             return jsonify({'error': 'Insufficient clearance'}), 403
         
-        # First, clean up any terminated connections for this user
-        terminated_connections = []
+        # CRITICAL: Remove ALL existing connections for this user (strict single connection per user)
+        # Backend dict is single source of truth - user should only have ONE connection at a time
+        existing_connections_to_remove = []
         for conn_id, conn in list(connections.items()):
             if (conn.get('user') == user_email and 
-                conn_id.startswith(f'vpn-{user_email}-') and
-                conn.get('status') == 'terminated'):
-                terminated_connections.append(conn_id)
+                conn_id.startswith(f'vpn-{user_email}-')):
+                # Remove ALL connections for this user (active or not)
+                existing_connections_to_remove.append(conn_id)
         
-        # Remove terminated connections
-        for conn_id in terminated_connections:
-            vpn_ip = connections[conn_id].get('vpn_ip')
-            # Clean up IP assignment
-            if vpn_ip and vpn_ip in assigned_ips and assigned_ips[vpn_ip] == conn_id:
+        # Remove all existing connections and free their IPs
+        for conn_id in existing_connections_to_remove:
+            conn = connections.get(conn_id)
+            if not conn:
+                continue
+            vpn_ip = conn.get('vpn_ip')
+            conn_status = conn.get('status', 'unknown')
+            
+            # Free IP assignment
+            if vpn_ip and vpn_ip in assigned_ips:
                 del assigned_ips[vpn_ip]
+                print(f"[VPN] Freed IP {vpn_ip} from existing connection {conn_id}")
+            
             # Clean up files
             if is_openvpn_installed():
                 subprocess.run(['pkill', '-f', conn_id], capture_output=True)
@@ -1383,48 +1450,16 @@ def connect_vpn():
                             os.remove(file_path)
                         except:
                             pass
-            del connections[conn_id]
-            print(f"[VPN] Cleaned up terminated connection: {conn_id}")
-        
-        # Check if user already has an active connection
-        # IMPORTANT: Check BEFORE creating new connection
-        existing_connection = None
-        active_connections = []
-        for conn_id, conn in list(connections.items()):  # Use list() to avoid modification during iteration
-            # Check if connection is active and belongs to this user
-            # Note: status can be 'active' or 'connected' (both mean active)
-            conn_status = conn.get('status', '')
-            is_active = conn_status in ['active', 'connected']
             
-            if (conn.get('user') == user_email and 
-                conn_id.startswith(f'vpn-{user_email}-')):  # Extra check to ensure it's a VPN connection
-                if is_active:
-                    active_connections.append(conn_id)
-                    if not existing_connection:  # Use the first active connection found
-                        existing_connection = {
-                            'connection_id': conn_id,
-                            'connected_at': conn.get('connected_at'),
-                            'vpn_ip': conn.get('vpn_ip'),
-                            'real_client_ip': conn.get('real_client_ip'),
-                            'location': conn.get('location'),
-                            'connection_mode': conn.get('connection_mode', 'unknown'),
-                            'status': conn_status
-                        }
+            # Remove from connections dict
+            del connections[conn_id]
+            print(f"[VPN] Removed existing connection: {conn_id} (status: {conn_status})")
         
-        # If multiple active connections found, log warning and use the first one
-        if len(active_connections) > 1:
-            print(f"[VPN] ⚠ WARNING: Multiple active connections found for {user_email}: {active_connections}")
-            print(f"[VPN] This should not happen. Keeping first connection: {active_connections[0]}")
+        if existing_connections_to_remove:
+            print(f"[VPN] ⚠ Removed {len(existing_connections_to_remove)} existing connection(s) for user {user_email} (strict single connection enforcement)")
         
-        if existing_connection:
-            print(f"[VPN] Rejecting duplicate connection attempt for {user_email}")
-            print(f"[VPN] Active connection exists: {existing_connection['connection_id']} (status: {existing_connection['status']})")
-            return jsonify({
-                'error': 'User already has an active VPN connection',
-                'existing_connection': existing_connection,
-                'message': 'Please disconnect the existing connection before creating a new one',
-                'connection_id': existing_connection['connection_id']
-            }), 409  # 409 Conflict
+        # After removing all existing connections, user should have NO connections
+        # Proceed with creating new connection
         
         # Get real client IP and location BEFORE VPN connection
         # Priority: Frontend-provided > Headers > Direct connection
@@ -1473,6 +1508,10 @@ def connect_vpn():
         
         connection_id = f"vpn-{user_email}-{int(time.time())}"
         routes = ['10.0.0.0/8', '192.168.0.0/16']  # From proposal
+        
+        # Clean up old log/ovpn files for this user (keep only active connections)
+        # Backend dict is single source of truth - only keep files for active connections
+        cleanup_old_user_files(user_email, keep_connection_id=connection_id)
         
         # Try to start OpenVPN daemon (but don't fail if it doesn't - will use mock mode)
         daemon_started = start_openvpn_daemon()
@@ -1856,6 +1895,64 @@ def connect_vpn():
         # Get the assigned VPN IP
         assigned_vpn_ip = result.get('ip')
         
+        # CRITICAL: Assign IP to assigned_ips dict IMMEDIATELY (single source of truth)
+        # This must happen BEFORE storing the connection to ensure proper tracking
+        if assigned_vpn_ip and assigned_vpn_ip.startswith('10.8.0.'):
+            # Check if this IP is already assigned to a different connection
+            if assigned_vpn_ip in assigned_ips:
+                existing_conn_id = assigned_ips[assigned_vpn_ip]
+                # If it's assigned to THIS connection, that's fine (might be a retry)
+                if existing_conn_id != connection_id:
+                    # IP already assigned to a DIFFERENT connection - serious error
+                    print(f"[VPN] ✗ ERROR: IP {assigned_vpn_ip} already assigned to {existing_conn_id}")
+                    # Clean up any files we may have created
+                    if is_openvpn_installed():
+                        subprocess.run(['pkill', '-f', connection_id], capture_output=True)
+                        ovpn_file = f'{connection_id}.ovpn'
+                        log_file = f'{connection_id}.log'
+                        for file_path in [ovpn_file, log_file]:
+                            if os.path.exists(file_path):
+                                try:
+                                    os.remove(file_path)
+                                except:
+                                    pass
+                    return jsonify({
+                        'error': f'IP {assigned_vpn_ip} already assigned to another connection',
+                        'existing_connection_id': existing_conn_id,
+                        'message': 'IP assignment conflict - please try again'
+                    }), 409
+            
+            # Check if this user already has a connection with a different IP
+            # This prevents assigning multiple IPs to the same user
+            for conn_id, conn in connections.items():
+                if (conn.get('user') == user_email and 
+                    conn.get('status') in ['active', 'connected'] and
+                    conn_id != connection_id and
+                    conn.get('vpn_ip') and conn.get('vpn_ip') != assigned_vpn_ip):
+                    print(f"[VPN] ✗ ERROR: User {user_email} already has active connection {conn_id} with IP {conn.get('vpn_ip')}")
+                    print(f"[VPN] Cannot assign new IP {assigned_vpn_ip} - user already has an active connection")
+                    # Clean up any files we may have created
+                    if is_openvpn_installed():
+                        subprocess.run(['pkill', '-f', connection_id], capture_output=True)
+                        ovpn_file = f'{connection_id}.ovpn'
+                        log_file = f'{connection_id}.log'
+                        for file_path in [ovpn_file, log_file]:
+                            if os.path.exists(file_path):
+                                try:
+                                    os.remove(file_path)
+                                except:
+                                    pass
+                    return jsonify({
+                        'error': f'User already has an active connection with IP {conn.get("vpn_ip")}',
+                        'existing_connection_id': conn_id,
+                        'existing_vpn_ip': conn.get('vpn_ip'),
+                        'message': 'Cannot assign multiple IPs to the same user - please disconnect existing connection first'
+                    }), 409
+            
+            # Assign IP to this connection (single source of truth)
+            assigned_ips[assigned_vpn_ip] = connection_id
+            print(f"[VPN] ✓ Assigned IP {assigned_vpn_ip} to connection {connection_id}")
+        
         # Final check: Verify no duplicate connection was created while we were setting up
         # This prevents race conditions where two requests come in simultaneously
         for conn_id, conn in list(connections.items()):
@@ -1867,6 +1964,10 @@ def connect_vpn():
                 conn_id != connection_id):  # Don't match our own connection
                 print(f"[VPN] ⚠ RACE CONDITION DETECTED: Another connection was created: {conn_id}")
                 print(f"[VPN] Aborting this connection attempt to prevent duplicate")
+                # Release the IP we just assigned
+                if assigned_vpn_ip and assigned_vpn_ip in assigned_ips:
+                    del assigned_ips[assigned_vpn_ip]
+                    print(f"[VPN] Released IP {assigned_vpn_ip} due to race condition")
                 # Clean up any files we may have created
                 if is_openvpn_installed():
                     subprocess.run(['pkill', '-f', connection_id], capture_output=True)
@@ -1888,17 +1989,6 @@ def connect_vpn():
                     },
                     'message': 'Please disconnect the existing connection before creating a new one'
                 }), 409
-        
-        # Track IP assignment to avoid duplicates
-        if assigned_vpn_ip and assigned_vpn_ip.startswith('10.8.0.'):
-            if assigned_vpn_ip in assigned_ips and assigned_ips[assigned_vpn_ip] != connection_id:
-                # IP already assigned to another connection - this shouldn't happen, but handle it
-                print(f"[VPN] ⚠ WARNING: IP {assigned_vpn_ip} already assigned to {assigned_ips[assigned_vpn_ip]}")
-            assigned_ips[assigned_vpn_ip] = connection_id
-        
-        # Sync assigned_ips with routing table to ensure all active IPs are tracked
-        # This handles cases where IPs were assigned but not properly tracked
-        sync_assigned_ips_from_routing_table()
         
         # Store connection with real IP/location (before VPN) and VPN IP (after VPN)
         # IMPORTANT: Store AFTER checking for duplicates
@@ -2047,36 +2137,71 @@ def disconnect_vpn():
     elif is_mock_connection:
         print(f"[VPN] Mock connection - skipping OpenVPN cleanup")
     
-    # ALWAYS remove IP assignment tracking (for both OpenVPN and mock)
-    # This ensures IPs are freed even if OpenVPN has errors
+    # CRITICAL: Remove IP assignment IMMEDIATELY (single source of truth)
+    # This must happen BEFORE removing from connections dict to ensure IP is freed
     ip_released = False
-    if vpn_ip and vpn_ip in assigned_ips:
-        if assigned_ips[vpn_ip] == connection_id:
-            del assigned_ips[vpn_ip]
-            ip_released = True
-            print(f"[VPN] Released IP assignment: {vpn_ip}")
+    if vpn_ip and vpn_ip.startswith('10.8.0.'):
+        if vpn_ip in assigned_ips:
+            if assigned_ips[vpn_ip] == connection_id:
+                del assigned_ips[vpn_ip]
+                ip_released = True
+                print(f"[VPN] ✓ Released IP assignment: {vpn_ip} (now available for reuse)")
+            else:
+                print(f"[VPN] ⚠ Warning: IP {vpn_ip} assigned to different connection: {assigned_ips.get(vpn_ip)}")
+                # Still remove it - connection is disconnecting
+                del assigned_ips[vpn_ip]
+                ip_released = True
+                print(f"[VPN] ✓ Force-released IP {vpn_ip} (was assigned to different connection)")
         else:
-            print(f"[VPN] ⚠ Warning: IP {vpn_ip} assigned to different connection: {assigned_ips.get(vpn_ip)}")
-            # Still remove it if it's not matching
-            del assigned_ips[vpn_ip]
-            ip_released = True
+            print(f"[VPN] ⚠ Warning: IP {vpn_ip} not found in assigned_ips dict (may have been already freed)")
+            ip_released = True  # Consider it released if not in dict
     
-    # Remove from connections dict
-    del connections[connection_id]
-    print(f"[VPN] Removed connection from tracking: {connection_id}")
+    # CRITICAL: Remove connection IMMEDIATELY from backend dict (single source of truth)
+    # Don't update status first - just delete it immediately
+    if connection_id in connections:
+        del connections[connection_id]
+        print(f"[VPN] ✓ Removed connection from backend dict: {connection_id}")
+    else:
+        print(f"[VPN] ⚠ Warning: Connection {connection_id} not found in connections dict")
     
-    # Immediately clean up ipp.txt entry and assigned_ips dict for this disconnected client
-    # Don't wait for status log - clean based on what we know
-    print(f"[VPN] Cleaning up ipp.txt entry and assigned_ips for disconnected client...")
+    # CRITICAL: Remove ALL other connections for this user (strict single connection enforcement)
+    # Backend dict is single source of truth - user should only have ONE connection at a time
+    other_connections_removed = []
+    for conn_id, conn in list(connections.items()):
+        if (conn.get('user') == user_email_from_conn and 
+            conn_id != connection_id and
+            conn_id.startswith(f'vpn-{user_email_from_conn}-')):
+            # Found another connection for this user (active or not) - remove it
+            other_vpn_ip = conn.get('vpn_ip')
+            if other_vpn_ip and other_vpn_ip in assigned_ips:
+                del assigned_ips[other_vpn_ip]
+                print(f"[VPN] ✓ Removed duplicate connection IP {other_vpn_ip} from assigned_ips")
+            
+            # Clean up files
+            if is_openvpn_installed():
+                subprocess.run(['pkill', '-f', conn_id], capture_output=True)
+                ovpn_file = f'{conn_id}.ovpn'
+                log_file = f'{conn_id}.log'
+                for file_path in [ovpn_file, log_file]:
+                    if os.path.exists(file_path):
+                        try:
+                            os.remove(file_path)
+                        except:
+                            pass
+            
+            del connections[conn_id]
+            other_connections_removed.append(conn_id)
+            print(f"[VPN] ✓ Removed duplicate connection: {conn_id}")
     
-    # Force remove IP from assigned_ips BEFORE cleanup (to prevent re-adding)
-    if vpn_ip and vpn_ip in assigned_ips:
-        del assigned_ips[vpn_ip]
-        ip_released = True
-        print(f"[VPN] Force-removed IP {vpn_ip} from assigned_ips before cleanup")
+    if other_connections_removed:
+        print(f"[VPN] ⚠ WARNING: Removed {len(other_connections_removed)} duplicate connection(s) for user {user_email_from_conn}: {other_connections_removed}")
     
-    # Clean up ipp.txt and assigned_ips (this will remove any other stale entries)
+    # Clean up ipp.txt entry (but assigned_ips is already cleaned above)
+    print(f"[VPN] Cleaning up ipp.txt entry for disconnected client...")
+    
+    # Clean up stale entries - but DON'T sync from OpenVPN files (backend is source of truth)
     cleanup_stale_ipp_entries()
+    # Only clean up stale IPs - don't sync from OpenVPN files
     cleanup_stale_assigned_ips()
     
     # Verify IP was released (double-check after cleanup)
@@ -2084,6 +2209,7 @@ def disconnect_vpn():
         print(f"[VPN] ⚠ Warning: IP {vpn_ip} still in assigned_ips after cleanup, forcing removal again...")
         del assigned_ips[vpn_ip]
         ip_released = True
+        print(f"[VPN] ✓ Force-released IP {vpn_ip} (final cleanup)")
     
     # For OpenVPN connections: Wait for status log to update and verify cleanup
     # For mock connections: Skip OpenVPN-specific cleanup
@@ -2193,9 +2319,10 @@ def disconnect_vpn():
 
 @app.route('/api/vpn/status', methods=['GET', 'POST'])
 def vpn_status():
-    """Get VPN status. Can use GET with query param or POST with JSON body."""
-    # Sync connection status with OpenVPN status log before checking
-    sync_connection_status_with_openvpn()
+    """Get VPN status. Can use GET with query param or POST with JSON body.
+    
+    Uses backend connections dict as single source of truth - no syncing from OpenVPN files.
+    """
     
     if request.method == 'GET':
         connection_id = request.args.get('connection_id')
@@ -2276,22 +2403,64 @@ def vpn_status():
 
 @app.route('/api/vpn/connections', methods=['GET'])
 def list_connections():
-    """List all connections. Can filter by user_email."""
+    """List all connections. Can filter by user_email.
+    
+    Returns active connections with proper formatting for frontend.
+    Uses backend connections dict as single source of truth.
+    """
     user_email = request.args.get('user_email')
+    
+    # Get active connections only (filter by status)
+    active_connections_list = []
+    for conn_id, conn in connections.items():
+        conn_status = conn.get('status', '')
+        is_active = conn_status in ['active', 'connected']
+        
+        # Build connection object with all required fields
+        conn_obj = {
+            'connection_id': conn_id,
+            'user': conn.get('user', ''),
+            'vpn_ip': conn.get('vpn_ip', ''),
+            'real_client_ip': conn.get('real_client_ip', ''),
+            'status': conn_status,
+            'connected_at': conn.get('connected_at'),
+            'connection_mode': conn.get('connection_mode', 'unknown'),
+            'location': conn.get('location', {}),
+            'device': conn.get('device', {}),
+            'last_continuous_auth': conn.get('last_continuous_auth'),
+            'last_risk_score': conn.get('last_risk_score', 0)
+        }
+        
+        # Add termination/disconnect info if applicable
+        if conn_status == 'terminated':
+            conn_obj['terminated_at'] = conn.get('terminated_at')
+            conn_obj['termination_reason'] = conn.get('termination_reason')
+        elif conn_status == 'disconnected':
+            conn_obj['disconnected_at'] = conn.get('disconnected_at')
+            conn_obj['disconnect_reason'] = conn.get('disconnect_reason')
+        
+        # Filter by user_email if provided
+        if user_email:
+            if (conn.get('user') == user_email and 
+                conn_id.startswith(f'vpn-{user_email}-')):
+                active_connections_list.append(conn_obj)
+        else:
+            # Include all connections (active and inactive)
+            active_connections_list.append(conn_obj)
+    
+    # Sort by connected_at (newest first)
+    active_connections_list.sort(key=lambda x: x.get('connected_at', ''), reverse=True)
+    
     if user_email:
-        # Use list() to avoid modification during iteration
-        user_connections = [
-            conn for conn_id, conn in list(connections.items()) 
-            if conn.get('user') == user_email and conn_id.startswith(f'vpn-{user_email}-')
-        ]
         return jsonify({
             'user': user_email,
-            'connections': user_connections,
-            'count': len(user_connections)
+            'connections': active_connections_list,
+            'count': len(active_connections_list)
         })
+    
     return jsonify({
-        'connections': list(connections.values()),
-        'count': len(connections)
+        'connections': active_connections_list,
+        'count': len(active_connections_list)
     })
 
 @app.route('/api/vpn/check-connection', methods=['GET'])
@@ -2359,15 +2528,13 @@ def get_continuous_auth_log():
 
 @app.route('/api/vpn/openvpn-status', methods=['GET'])
 def get_openvpn_status():
-    """Get detailed OpenVPN status from status log file."""
-    # Sync connection status before reading status log to ensure accuracy
-    sync_connection_status_with_openvpn()
+    """Get detailed OpenVPN status from status log file.
     
-    # Sync assigned_ips FROM routing table to ensure all active IPs are tracked
-    # (only adds IPs if there's an active backend connection)
-    sync_assigned_ips_from_routing_table()
-    
-    # Clean up stale assigned IPs (removes IPs without active backend connections)
+    NOTE: This endpoint is for debugging/reference only.
+    Backend dicts (connections, assigned_ips) are the single source of truth.
+    OpenVPN files are NOT used to drive logic.
+    """
+    # Clean up stale assigned IPs based on backend dicts only (no syncing from files)
     cleanup_stale_assigned_ips()
     
     # Read fresh data from files (always read latest, no caching)
@@ -2434,31 +2601,31 @@ def get_openvpn_status():
     
     # Filter routing table and clients to only show those with active backend connections
     # This ensures disconnected clients don't appear even if OpenVPN status log is stale
+    # CRITICAL: Match by IP only, not by CN, to prevent showing disconnected clients
+    # when a user has multiple connections and one disconnects
     active_backend_ips = set()
-    active_backend_cns = set()
     for conn_id, conn in connections.items():
         if conn.get('status') in ['active', 'connected']:
             vpn_ip = conn.get('vpn_ip', '').strip()
-            user_email = conn.get('user', '').lower().strip()
             if vpn_ip:
                 active_backend_ips.add(vpn_ip)
-            if user_email:
-                active_backend_cns.add(user_email)
     
-    # Filter clients to only show those with active backend connections
+    # Filter clients to only show those with active backend connections (match by IP only)
     filtered_clients = []
     for client in clients:
         client_ip = client.get('virtual_address', '').strip()
-        client_cn = client.get('common_name', '').strip().lower()
-        if client_ip in active_backend_ips or client_cn in active_backend_cns:
+        # Only include if IP is in active backend connections
+        # This ensures disconnected clients don't appear even if they share the same CN
+        if client_ip and client_ip in active_backend_ips:
             filtered_clients.append(client)
     
-    # Filter routing table to only show routes with active backend connections
+    # Filter routing table to only show routes with active backend connections (match by IP only)
     filtered_routing_table = []
     for route in routing_table:
         route_ip = route.get('virtual_address', '').strip()
-        route_cn = route.get('common_name', '').strip().lower()
-        if route_ip in active_backend_ips or route_cn in active_backend_cns:
+        # Only include if IP is in active backend connections
+        # This ensures disconnected routes don't appear even if they share the same CN
+        if route_ip and route_ip in active_backend_ips:
             filtered_routing_table.append(route)
     
     # Create filtered status_data for response
@@ -2602,14 +2769,11 @@ def diagnose_files():
 @app.route('/api/vpn/ip-assignments', methods=['GET'])
 def get_ip_assignments():
     """Get current IP assignment tracking.
-    Syncs with routing table to ensure accuracy."""
-    # Sync connection status before returning data
-    sync_connection_status_with_openvpn()
     
-    # Sync assigned_ips FROM routing table to ensure all active IPs are tracked
-    sync_assigned_ips_from_routing_table()
-    
-    # Clean up stale entries
+    Uses backend dicts (assigned_ips, connections) as single source of truth.
+    No syncing from OpenVPN files - they are for reference only.
+    """
+    # Clean up stale entries based on backend dicts only
     cleanup_stale_assigned_ips()
     
     # Get routing table for reference
@@ -2618,31 +2782,29 @@ def get_ip_assignments():
     clients = status_data.get('clients', [])
     
     # Filter routing table and clients to only show those with active backend connections
+    # CRITICAL: Match by IP only, not by CN, to prevent showing disconnected clients
+    # when a user has multiple connections and one disconnects
     active_backend_ips = set()
-    active_backend_cns = set()
     for conn_id, conn in connections.items():
         if conn.get('status') in ['active', 'connected']:
             vpn_ip = conn.get('vpn_ip', '').strip()
-            user_email = conn.get('user', '').lower().strip()
             if vpn_ip:
                 active_backend_ips.add(vpn_ip)
-            if user_email:
-                active_backend_cns.add(user_email)
     
-    # Filter clients
+    # Filter clients (match by IP only)
     filtered_clients = []
     for client in clients:
         client_ip = client.get('virtual_address', '').strip()
-        client_cn = client.get('common_name', '').strip().lower()
-        if client_ip in active_backend_ips or client_cn in active_backend_cns:
+        # Only include if IP is in active backend connections
+        if client_ip and client_ip in active_backend_ips:
             filtered_clients.append(client)
     
-    # Filter routing table
+    # Filter routing table (match by IP only)
     filtered_routing_table = []
     for route in routing_table:
         route_ip = route.get('virtual_address', '').strip()
-        route_cn = route.get('common_name', '').strip().lower()
-        if route_ip in active_backend_ips or route_cn in active_backend_cns:
+        # Only include if IP is in active backend connections
+        if route_ip and route_ip in active_backend_ips:
             filtered_routing_table.append(route)
     
     return jsonify({
@@ -2734,6 +2896,80 @@ def verify_openvpn():
     
     return jsonify(verification)
 
+@app.route('/api/vpn/dashboard', methods=['GET'])
+def get_dashboard_data():
+    """Get dashboard data using backend as single source of truth.
+    
+    Returns:
+    - routing_table: Built from active connections (assigned_ips + connections)
+    - assigned_ips: List of IP assignments from assigned_ips dict
+    - active_clients: List of active clients from connections dict
+    
+    This endpoint uses assigned_ips and connections as the single source of truth,
+    not OpenVPN status logs, to ensure accurate real-time data.
+    """
+    # Build routing table from active connections (single source of truth)
+    routing_table = []
+    assigned_ips_list = []
+    active_clients_list = []
+    
+    # Get all active connections
+    active_connections = {
+        conn_id: conn for conn_id, conn in connections.items()
+        if conn.get('status') in ['active', 'connected']
+    }
+    
+    # Build routing table and active clients from active connections
+    for conn_id, conn in active_connections.items():
+        vpn_ip = conn.get('vpn_ip', '').strip()
+        user_email = conn.get('user', '').strip()
+        real_client_ip = conn.get('real_client_ip', '').strip()
+        
+        if vpn_ip and vpn_ip.startswith('10.8.0.'):
+            # Add to routing table
+            routing_table.append({
+                'virtual_address': vpn_ip,
+                'common_name': user_email,
+                'real_address': real_client_ip or 'N/A'
+            })
+            
+            # Add to assigned IPs list
+            assigned_ips_list.append({
+                'vpn_ip': vpn_ip,
+                'connection_id': conn_id
+            })
+            
+            # Add to active clients list
+            active_clients_list.append({
+                'common_name': user_email,
+                'virtual_address': vpn_ip,
+                'real_address': real_client_ip or 'N/A',
+                'connected_at': conn.get('connected_at'),
+                'status': 'active',
+                'connection_id': conn_id,
+                'connection_mode': conn.get('connection_mode', 'unknown')
+            })
+    
+    # Sort routing table by IP for consistency
+    routing_table.sort(key=lambda x: x['virtual_address'])
+    
+    # Sort assigned IPs by IP
+    assigned_ips_list.sort(key=lambda x: x['vpn_ip'])
+    
+    # Sort active clients by connected_at (newest first)
+    active_clients_list.sort(key=lambda x: x.get('connected_at', ''), reverse=True)
+    
+    return jsonify({
+        'routing_table': routing_table,
+        'assigned_ips': assigned_ips_list,
+        'active_clients': active_clients_list,
+        'routing_table_count': len(routing_table),
+        'assigned_ips_count': len(assigned_ips_list),
+        'active_clients_count': len(active_clients_list),
+        'updated_at': datetime.now().isoformat(),
+        'source': 'backend_single_source_of_truth'  # Indicate we're using backend as source
+    })
+
 @app.route('/health', methods=['GET'])
 def health():
     vpn_running = (openvpn_process is not None and openvpn_process.poll() is None) or is_openvpn_running()
@@ -2771,62 +3007,9 @@ def cleanup_old_certificates():
         except Exception as e:
             print(f"[CLEANUP] Error in certificate cleanup: {e}")
 
-# Background thread to monitor OpenVPN status files
-def monitor_openvpn_files():
-    """Monitor OpenVPN status files and log updates."""
-    last_status_size = 0
-    last_ipp_size = 0
-    last_client_count = 0
-    
-    while True:
-        time.sleep(15)  # Check every 15 seconds (more frequent for better sync)
-        try:
-            if os.path.exists('openvpn-status.log'):
-                current_size = os.path.getsize('openvpn-status.log')
-                status_data = read_openvpn_status()
-                client_count = len(status_data.get('clients', []))
-                
-                # Check if status log changed (size or client count)
-                if current_size != last_status_size or client_count != last_client_count:
-                    print(f"[{datetime.now().isoformat()}] OpenVPN status log updated: {current_size} bytes, {client_count} client(s)")
-                    last_status_size = current_size
-                    last_client_count = client_count
-                    
-                    if client_count > 0:
-                        print(f"  Active clients: {client_count}")
-                        for client in status_data.get('clients', []):
-                            cn = client.get('common_name', '')
-                            ip = client.get('virtual_address', '')
-                            print(f"    - {cn} -> {ip}")
-                    else:
-                        print(f"  No active clients")
-                    
-                    # Sync connection status when status log changes
-                    sync_connection_status_with_openvpn()
-                    # Clean up stale ipp.txt entries when status changes
-                    cleanup_stale_ipp_entries()
-                    # Clean up stale assigned_ips when status changes
-                    cleanup_stale_assigned_ips()
-            
-            if os.path.exists('ipp.txt'):
-                current_size = os.path.getsize('ipp.txt')
-                if current_size != last_ipp_size:
-                    print(f"[{datetime.now().isoformat()}] IP pool file updated: {current_size} bytes (was {last_ipp_size})")
-                    last_ipp_size = current_size
-                    # Read and log assignments
-                    ipp_data = read_ipp_file()
-                    assignment_count = len(ipp_data.get('assignments', []))
-                    if assignment_count > 0:
-                        print(f"  IP assignments: {assignment_count}")
-                        # Clean up stale entries when ipp.txt changes
-                        cleanup_stale_ipp_entries()
-                        cleanup_stale_assigned_ips()
-        except Exception as e:
-            print(f"Error monitoring OpenVPN files: {e}")
-
-# Start file monitor thread
-file_monitor_thread = threading.Thread(target=monitor_openvpn_files, daemon=True)
-file_monitor_thread.start()
+# REMOVED: Background thread to monitor OpenVPN status files
+# Backend dicts are the single source of truth - no need to sync from OpenVPN files
+# OpenVPN files are for reference/debugging only, not for driving logic
 
 # Start certificate cleanup thread
 cert_cleanup_thread = threading.Thread(target=cleanup_old_certificates, daemon=True)
@@ -2836,8 +3019,7 @@ if __name__ == '__main__':
     ensure_status_files()  # Ensure files exist before starting
     start_openvpn_daemon()  # Start on boot
     
-    # Wait a bit for OpenVPN to start, then sync IP assignments
-    time.sleep(3)
-    sync_ip_assignments_from_openvpn()
+    # Backend dicts are the single source of truth - no syncing from OpenVPN files
+    # OpenVPN files are for reference/debugging only
     
     app.run(host='0.0.0.0', port=5001, debug=True)
